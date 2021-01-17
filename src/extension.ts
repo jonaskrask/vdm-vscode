@@ -3,7 +3,7 @@ import * as net from 'net';
 import * as child_process from 'child_process';
 import * as portfinder from 'portfinder';
 import {
-    window as Window, ExtensionContext, TextDocument, WorkspaceFolder, Uri, window, InputBoxOptions, workspace, ConfigurationScope, commands, ConfigurationChangeEvent
+    window as Window, ExtensionContext, TextDocument, WorkspaceFolder, Uri, window, InputBoxOptions, workspace, ConfigurationScope, commands, ConfigurationChangeEvent, OpenDialogOptions
 } from 'vscode';
 import {
     LanguageClientOptions, ServerOptions
@@ -294,6 +294,17 @@ export function activate(context: ExtensionContext) {
             }
         }
     });
+
+    let options : OpenDialogOptions = {
+        canSelectFiles: true,
+        canSelectFolders: true,
+        canSelectMany: true,
+        defaultUri: Uri.joinPath(context.extensionUri, "example_projects","Examples-VDMSL.zip","VDMSL") 
+    }
+    commands.registerCommand("vdm-vscode.importProject", () => {
+        window.showInformationMessage("works");
+        //window.showOpenDialog(options)
+    })
 }
 
 export function deactivate(): Thenable<void> | undefined {

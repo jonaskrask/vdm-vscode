@@ -34,11 +34,17 @@
   "activationEvents": [
     "onLanguage:vdmsl",
     "onLanguage:vdmpp",
-    "onLanguage:vdmrt"
+    "onLanguage:vdmrt",
+    "onCommand:vdm-vscode.importProject"
   ],
   "main": "./dist/extension",
   "contributes": {
     "commands": [
+      {
+        "command": "vdm-vscode.importProject",
+        "title": "Import VDM Project",
+        "category": "VDM"
+      },
       {
         "command": "vdm-vscode.translateLatex",
         "title": "Translate to LaTeX",
@@ -255,6 +261,10 @@
           "command": "vdm-vscode.translateWord",
           "when": "resourceLangId == vdmsl && tr-word-show-button == true || resourceLangId == vdmpp && tr-word-show-button == true || resourceLangId == vdmrt && tr-word-show-button == true",
           "group": "translate@2"
+        },
+        {
+          "command": "vdm-vscode.importProject",
+          "group": "2_workspace"
         }
       ],
       "editor/context": [
