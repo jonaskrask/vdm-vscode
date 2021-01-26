@@ -40,7 +40,7 @@
 		},
 		"tuple": {
 			"name": "support.type.tuple.vdm",
-			"match": "mk_"
+			"match": "\\bmk_"
 		},
 		"strings": {
 			"name": "string.quoted.double.vdm",

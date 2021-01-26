@@ -1,7 +1,7 @@
 {
+  "version": "1.0.5",
   "name": "vdm-vscode",
   "displayName": "VDM VSCode",
-  "version": "1.0.2",
   "description": "Support for the VDM modelling languages: VDM-SL, VDM++ and VDM-RT",
   "icon": "resources/icons/Overture.png",
   "keywords": [

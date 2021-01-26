@@ -118,6 +118,7 @@ export function activate(context: ExtensionContext) {
         if (debug) {
             let lspPort = workspace.getConfiguration('vdm-vscode.debug', folder).lspPort;
             let dapPort = workspace.getConfiguration('vdm-vscode.debug', folder).dapPort;
+            window.showInformationMessage(`Connecting to experimental server on LSP port ${lspPort} and DAP port ${dapPort}`);
 
             let client = createClient(dialect, lspPort, dapPort, folder);
             let clientKey = folder.uri.toString();

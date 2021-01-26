@@ -23,6 +23,7 @@ The extension utilises a [language server powered by VDMJ](https://github.com/ni
 - Translation to LaTeX and Word
 
 ### Future Work
+- Import of project examples
 - Improve syntax highlighting
 - Improve debugging execution
 - Include coverage report
@@ -38,19 +39,19 @@ The following displays snippets of the feature functionalities provided by the e
 - **Syntax- and type-checking**: Syntax- and type-errors and warnings are highligthed in the editor and detailed in the terminal or by hovering on the highlighted section.
 <br><br> <img src="https://github.com/jonaskrask/vdm-vscode/raw/master/screenshots/syntax_checking.gif" width="700">
 
-- **Smart navigation**: Mutiple actions exists for navigating to the definition for a given identifier in a specification: Ctrl + click, the right click context menu or pressing f12 while hovering on the identifier.
+- **Smart navigation**: Mutiple actions exists for navigating to the definition of a given identifier in a specification: Ctrl + click, the right-click context menu or pressing F12 while hovering on the identifier.
 <br><br> <img src="https://github.com/jonaskrask/vdm-vscode/raw/master/screenshots/smart_navigation.gif" width="700">
 
-- **Debugging**: A debugging session can be initiated using the standard VS Code debug interface. This launches the VDMJ interpreter enabling commands to be issued through the terminal. For a list og the available commands type `help`.
+- **Debugging**: A debugging session can be initiated using the standard VS Code debug interface. This launches the VDMJ interpreter enabling commands to be issued through the terminal. For a list of the available commands type `help`.
 <br><br> <img src="https://github.com/jonaskrask/vdm-vscode/raw/master/screenshots/debugging.gif" width="700">
 
-- **Proof Obligation Generation**: Proof obligation generation can be performed for a given specification through accessing the editor context menu by right-clicking in the editor window. Alternatively the explorer contex menu can be used by right-clicking a vdm file in the explorer window.
+- **Proof Obligation Generation**: Proof obligation generation can be performed for a specification by accessing the editor context menu (right-clicking in the editor window). Alternatively the explorer contex menu can be used by right-clicking a VDM file in the explorer window.
 <br><br> <img src="https://github.com/jonaskrask/vdm-vscode/raw/master/screenshots/POG.gif" width="700">
 
 - **Combinatiorial Testing**: Combinatorial testing can be performed for a given specification by accessing the "Combinatorial Testing" menu in the activity bar.
 <br><br> <img src="https://github.com/jonaskrask/vdm-vscode/raw/master/screenshots/CT.gif" width="700">
 
-- **Translation to LaTeX and Word**: A specification can be translated to LaTex or Word formats through accessing the editor context menu by right-clicking in the editor.
+- **Translation to LaTeX and Word**: A specification can be translated to LaTex or Word formats by accessing the editor context menu by right-clicking in the editor.
 <br><br> <img src="https://github.com/jonaskrask/vdm-vscode/raw/master/screenshots/translation.gif" width="700">
 
 

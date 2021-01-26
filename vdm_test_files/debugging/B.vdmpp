@@ -1,0 +1,18 @@
+class B
+operations
+	public bigpower: () ==> ()
+	bigpower() == (
+	    dcl a : set of set of nat := power {1,...,1000};
+        a := {{0}};
+	);
+
+	public longtask: () ==> ()
+	longtask() == (
+	    dcl a : set of nat := {1,...,1000};
+		while card a <> 0 do (
+			let b in set a in
+				a := a \ {b};
+		);
+	);
+
+end B

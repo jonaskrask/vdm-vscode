@@ -9,6 +9,12 @@
 			"include": "#modifier"
 		},
 		{
+			"include": "#storage"
+		},
+		{
+			"include": "#end"
+		},
+		{
 			"include": "#definitions"
 		},
 		{
@@ -92,6 +98,26 @@
 				{
 					"name": "storage.modifier.vdm",
 					"match": "\\b(public|private|protected|static|pre|post|pure|inv)\\b"
+				}
+			]
+		},
+		"storage":{
+			"name": "storage.type.dcl.vdm",
+			"match": "\\b(dcl|struct|state)\\b"
+		},
+		"end":{
+			"patterns": [
+				{
+					"name": "keyword.other.end.vdm",
+					"match": "(?<!\\\\)\\bend\\b"
+				}
+			]
+		},
+		"prefixes":{
+			"patterns": [
+				{
+					"name": "keyword.other.prefix.vdm",
+					"match": "\\b(init_|inv_|is_|post_|pre_)"
 				}
 			]
 		},

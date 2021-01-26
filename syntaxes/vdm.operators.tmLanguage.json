@@ -15,6 +15,9 @@
 			"include": "#set"
 		},
 		{
+			"include": "#seq"
+		},
+		{
 			"include": "#applicators"
 		},
 		{
@@ -66,6 +69,10 @@
 			"name": "keyword.other.set.vdm",
 			"match": "\\b(subset|psubset|in set|not in set)\\b"
 		},
+		"seq": {
+			"name": "keyword.other.seq.vdm",
+			"match": "\\b(in seq|in seq1|seq)\\b"
+		},
 		"connectives": {
 			"name": "keyword.other.connectives.vdm",
 			"match": "\\b(not|and|or|=>|<=>)\\b"
@@ -77,7 +84,7 @@
 		},
 		"other": {
 			"name": "keyword.other.vdm",
-			"match": "\\b(\\.\\.\\.|forall|exists|exists1|iota|lambda|all|from|eq|ord|compose|of|is_)\\b"
+			"match": "\\b(\\.\\.\\.|forall|exists|exists1|iota|lambda|all|from|eq|ord|compose|of)\\b"
 		}
 	},
 	"scopeName": "source.vdm.operators"
