@@ -296,15 +296,44 @@ export function activate(context: ExtensionContext) {
         }
     });
 
-    let options : OpenDialogOptions = {
-        canSelectFiles: true,
-        canSelectFolders: true,
-        canSelectMany: true,
-        defaultUri: Uri.joinPath(context.extensionUri, "example_projects","Examples-VDMSL.zip","VDMSL") 
-    }
     commands.registerCommand("vdm-vscode.importProject", () => {
-        window.showInformationMessage("works");
-        //window.showOpenDialog(options)
+        let options : OpenDialogOptions = {
+            title: "Select example projects to import",
+            canSelectFiles: false,
+            canSelectFolders: true,
+            canSelectMany: true,
+            defaultUri: Uri.joinPath(context.extensionUri, "example_projects"),
+        }
+        window.showOpenDialog(options).then(folders => {
+            // Canceled
+            if (folders === undefined)
+                return;
+
+            // Check if folder is part of example project folder
+            let validUris = true;
+            folders.forEach(uri => {
+                let validUri = false;
+                [Uri.joinPath(context.extensionUri, "example_projects", "VDM++","x").toString(),
+                Uri.joinPath(context.extensionUri, "example_projects", "VDMSL","x").toString(),
+                Uri.joinPath(context.extensionUri, "example_projects", "VDMRT","x").toString()].forEach(v => {
+                    if (uri.toString().startsWith(v.slice(0,v.length-1)))
+                        validUri = true;
+                })
+                if (!validUri)
+                    validUris = false;
+            })
+            if (!validUris){
+                window.showInformationMessage("Selected folder is not an example project");
+                return
+            }
+                
+            // In a workspace
+            let asd = workspace.workspaceFile
+            if ( asd === undefined)
+                window.showInformationMessage("no workspace");
+
+            // workspace.updateWorkspaceFolders{workspace.workspaceFolders ? workspace.workspaceFolders.length : 0, null, {uri: }}
+        })
     })
 }
 

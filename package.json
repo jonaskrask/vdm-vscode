@@ -264,7 +264,8 @@
         },
         {
           "command": "vdm-vscode.importProject",
-          "group": "2_workspace"
+          "group": "2_workspace",
+          "when": "explorerResourceIsFolder || resourceScheme != file"
         }
       ],
       "editor/context": [
