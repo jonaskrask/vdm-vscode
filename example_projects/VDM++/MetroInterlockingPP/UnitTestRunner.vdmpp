@@ -1,0 +1,14 @@
+class UnitTestRunner
+
+operations
+    public Execute: () ==> ()
+           Execute() ==
+                def tests: TestSuite = new TestSuite(new UnitTests());
+                    result = new TestResult()
+                in
+                (
+                    tests.run(result);
+                    IO`println(result.toString());
+                );
+
+end UnitTestRunner

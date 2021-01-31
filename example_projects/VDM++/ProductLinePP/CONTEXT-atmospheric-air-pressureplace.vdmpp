@@ -1,0 +1,19 @@
+class AtmosphericAirPressure
+
+types
+  Atmosphere = real;
+
+instance variables
+  protected atm : real := 0.9;
+
+operations
+  pure public
+  GetAtm: () ==> real
+  GetAtm() == return atm;
+
+  public
+  SetAtm: real ==> ()
+  SetAtm(a) ==
+    atm := a;
+
+end AtmosphericAirPressure

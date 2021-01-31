@@ -1,0 +1,44 @@
+/*
+   A module that specifies and defines general purpose functions over orders.
+
+   All definitions are explicit and executable.
+*/
+module Ord
+exports functions min[@a]: @a * @a +> @a
+                  minWith[@a]: (@a * @a +> bool) +> @a * @a +> @a
+                  max[@a]: @a * @a +> @a
+                  maxWith[@a]: (@a * @a +> bool) +> @a * @a +> @a
+
+definitions
+
+values
+
+functions
+
+  /*
+    The function defined below a simple in nature, and of limited value in their own right.
+    They can be used in other modules where it is necessary to pass min/max functions as
+    arguments to other functions without the need to define auxiliary functions.
+  */
+
+  -- The minimum of two values.
+  min[@a]: @a * @a +> @a
+  min(x,y) == if x < y then x else y;
+  -- pre The type parameter admits an order relation.
+
+  -- The minimum of two values with respect to a relation.
+  minWith[@a]: (@a * @a +> bool) +> @a * @a +> @a
+  minWith(o)(x,y) == if o(x,y) then x else y;
+  -- pre 'o' is a partial order relation.
+
+  -- The maximum of two values.
+  max[@a]: @a * @a +> @a
+  max(x,y) == if y < x then x else y;
+  -- pre The type parameter admits an order relation.
+
+  -- The maximum of two values with respect to a relation.
+  maxWith[@a]: (@a * @a +> bool) +> @a * @a +> @a
+  maxWith(o)(x,y) == if o(y,x) then x else y;
+  -- pre 'o' is a partial order relation.
+
+end Ord

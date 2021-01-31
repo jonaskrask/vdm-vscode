@@ -1,0 +1,373 @@
+/*
+   A module that specifies and defines general purpose functions over sequences.
+
+   All functions are explicit and executable. Where a non-executable condition adds value, it
+   is included as a comment.
+*/
+module Seq
+imports from Numeric all,
+        from Ord all
+exports functions sum: seq of real +> real;
+                  prod: seq of real +> real;
+                  min[@a]: seq1 of @a +> @a;
+                  minWith[@a]: (@a * @a +> bool) +> seq1 of @a +> @a;
+                  max[@a]: seq1 of @a +> @a;
+                  maxWith[@a]: (@a * @a +> bool) +> seq1 of @a +> @a;
+                  inSeq[@a]: @a * seq of @a +> bool;
+                  indexOf[@a]: @a * seq1 of @a +> nat1;
+                  indexOfSeq[@a]: seq1 of @a * seq1 of @a +> nat1;
+                  indexOfSeqOpt[@a]: seq1 of @a * seq1 of @a +> [nat1];
+                  numOccurs[@a]: @a * seq of @a +> nat;
+                  permutation[@a]: seq of @a * seq of @a +> bool;
+                  ascending[@a]: seq of @a +> bool;
+                  ascendingWith[@a]: (@a * @a +> bool) +> seq of @a +> bool;
+                  descending[@a]: seq of @a +> bool;
+                  descendingWith[@a]: (@a * @a +> bool) +> seq of @a +> bool;
+                  insert[@a]: @a * seq of @a +> seq of @a;
+                  insertWith[@a]: (@a * @a +> bool) +> @a * seq of @a +> seq of @a;
+                  sort[@a]: seq of @a +> seq of @a;
+                  sortWith[@a]: (@a * @a +> bool) +> seq of @a +> seq of @a;
+                  lexicographic[@a]: seq of @a * seq of @a +> bool;
+                  lexicographicWith[@a]: (@a * @a +> bool) +> seq of @a * seq of @a +> bool;
+                  preSeq[@a]: seq of @a * seq of @a +> bool;
+                  postSeq[@a]: seq of @a * seq of @a +> bool;
+                  subSeq[@a]: seq of @a * seq of @a +> bool;
+                  replicate[@a]: nat * @a +> seq of @a;
+                  padLeft[@a]: seq of @a * @a * nat +> seq of @a;
+                  padRight[@a]: seq of @a * @a * nat +> seq of @a;
+                  padCentre[@a]: seq of @a * @a * nat +> seq of @a;
+                  dropWhile[@a]: (@a +> bool) * seq of @a +> seq of @a;
+                  xform[@a,@b]: (@a +> @b) * seq of @a +> seq of @b;
+                  fold[@a]: (@a * @a +> @a) * @a * seq of @a +> @a;
+                  fold1[@a]: (@a * @a +> @a) * seq1 of @a +> @a;
+                  zip[@a,@b]: seq of @a * seq of @b +> seq of (@a * @b);
+                  unzip[@a,@b]: seq of (@a * @b) +> seq of @a * seq of @b;
+                  isDistinct[@a]: seq of @a +> bool;
+                  pairwise[@a]: (@a * @a +> bool) +> seq of @a +> bool;
+                  app[@a]: seq of @a * seq of @a +> seq of @a;
+                  setOf[@a]: seq of @a +> set of @a;
+                  format[@a]: (@a +> seq of char) * seq of char * seq of @a +> seq of char
+
+definitions
+
+functions
+
+  -- The sum of a set of numerics.
+  sum: seq of real +> real
+  sum(s) == fold[real](Numeric`add,0,s);
+
+  -- The product of a set of numerics.
+  prod: seq of real +> real
+  prod(s) == fold[real](Numeric`mult,1,s);
+
+  -- The minimum of a sequence.
+  min[@a]: seq1 of @a +> @a
+  min(s) == fold1[@a](Ord`min[@a], s)
+  post RESULT in set elems s and forall e in set elems s & RESULT <= e;
+
+  -- The minimum of a sequence with respect to a relation.
+  minWith[@a]: (@a * @a +> bool) +> seq1 of @a +> @a
+  minWith(o)(s) == fold1[@a](Ord`minWith[@a](o), s)
+  post RESULT in set elems s and forall e in set elems s & RESULT = e or o(RESULT,e);
+
+  -- The maximum of a sequence.
+  max[@a]: seq1 of @a +> @a
+  max(s) == fold1[@a](Ord`max[@a], s)
+  post RESULT in set elems s and forall e in set elems s & RESULT >= e;
+
+  -- The maximum of a sequence with respect to a relation.
+  maxWith[@a]: (@a * @a +> bool) +> seq1 of @a +> @a
+  maxWith(o)(s) == fold1[@a](Ord`maxWith[@a](o), s)
+  post RESULT in set elems s and forall e in set elems s & RESULT = e or o(e,RESULT);
+
+  -- Does an element appear in a sequence?
+  inSeq[@a]: @a * seq of @a +> bool
+  inSeq(e,s) == e in set elems s;
+
+  -- The position an item appears in a sequence?
+  indexOf[@a]: @a * seq1 of @a +> nat1
+  indexOf(e,s) == cases s:
+                    [-]    -> 1,
+                    [f]^ss -> if e=f then 1 else 1 + indexOf[@a](e,ss)
+                  end
+  pre inSeq[@a](e,s)
+  measure size0;
+
+  -- The position a subsequence appears in a sequence.
+  indexOfSeq[@a]: seq1 of @a * seq1 of @a +> nat1
+  indexOfSeq(r,s) == if preSeq[@a](r,s)
+                     then 1
+                     else 1 + indexOfSeq[@a](r, tl s)
+  pre subSeq[@a](r,s)
+  measure size3;
+
+  -- The position a subsequence appears in a sequence?
+  indexOfSeqOpt[@a]: seq1 of @a * seq1 of @a +> [nat1]
+  indexOfSeqOpt(r,s) == if subSeq[@a](r,s) then indexOfSeq[@a](r, s) else nil;
+
+  -- The number of times an element appears in a sequence.
+  numOccurs[@a]: @a * seq of @a +> nat
+  numOccurs(e,sq) == len [ 0 | i in seq sq & i = e ];
+
+  -- Is one sequence a permutation of another?
+  permutation[@a]: seq of @a * seq of @a +> bool
+  permutation(sq1,sq2) ==
+    len sq1 = len sq2 and
+    forall x in seq sq1 & numOccurs[@a](x,sq1) = numOccurs[@a](x,sq2);
+
+  -- Is a sequence presented in ascending order?
+  ascending[@a]: seq of @a +> bool
+  ascending(s) == forall i in set {1,...,len s - 1} & s(i) <= s(i+1)
+  post RESULT <=> descending[@a](reverse(s));
+
+  -- Is a sequence presented in ascending order with respect to a relation?
+  ascendingWith[@a]: (@a * @a +> bool) +> seq of @a +> bool
+  ascendingWith(o)(s) == forall i in set {1,...,len s - 1} & s(i) = s(i+1) or o(s(i), s(i+1))
+  post RESULT <=> descendingWith[@a](o)(reverse(s));
+
+  -- Is a sequence presented in descending order?
+  descending[@a]: seq of @a +> bool
+  descending(s) == forall i in set {1,...,len s - 1} & s(i) >= s(i+1);
+  --post RESULT <=> ascending[@a](reverse(s));
+
+  -- Is a sequence presented in descending order with respect to a relation?
+  descendingWith[@a]: (@a * @a +> bool) +> seq of @a +> bool
+  descendingWith(o)(s) == forall i in set {1,...,len s - 1} & s(i) = s(i+1) or o(s(i+1), s(i));
+  --post RESULT <=> ascendingWith[@a](o)(reverse(s));
+
+  -- Insert a value into an ascending sequence preserving order.
+  insert[@a]: @a * seq of @a +> seq of @a
+  insert(x, s) == cases s:
+                    []    -> [x],
+                    [y]   -> if x <= y then [x,y] else [y,x],
+                    [y]^t -> if x <= y then [x]^s else [y]^insert[@a](x, t)
+                  end
+  pre ascending[@a](s)
+  post ascending[@a](RESULT) and permutation[@a]([x]^s, RESULT)
+  measure size9;
+
+  -- Insert a value into an ascending sequence of values preserving order.
+  insertWith[@a]: (@a * @a +> bool) +> @a * seq of @a +> seq of @a
+  insertWith(o)(x, s) ==
+    cases s:
+      []    -> [x],
+      [y]   -> if o(x,y) then [x,y] else [y,x],
+      [y]^t -> if o(x,y) then [x]^s else [y]^insertWith[@a](o)(x, t)
+    end
+  pre ascendingWith[@a](o)(s)
+  post ascendingWith[@a](o)(RESULT) and permutation[@a]([x]^s, RESULT)
+  measure size6;
+
+  -- Sort a sequence of items.
+  sort[@a]: seq of @a +> seq of @a
+  sort(s) == cases s:
+               []      -> [],
+               [x]     -> [x],
+               [x] ^ t -> insert[@a](x, sort[@a](t))
+             end
+  post elems RESULT = elems s and ascending[@a](RESULT)
+  measure size10;
+
+  -- Sort a sequence of items by the provided order relation.
+  sortWith[@a]: (@a * @a +> bool) +> seq of @a +> seq of @a
+  sortWith(o)(s) == cases s:
+                      [] -> [],
+                      [x] -> [x],
+                      [x] ^ t -> insertWith[@a](o)(x, sortWith[@a](o)(t))
+                    end
+  post elems RESULT = elems s and ascendingWith[@a](o)(RESULT)
+  measure size7;
+
+  -- Lexicographic ordering on sequences.
+  lexicographic[@a]: seq of @a * seq of @a +> bool
+  lexicographic(s, t) ==
+    cases mk_(s, t):
+      mk_([], [-])        -> true,
+      mk_([], -^-)        -> true,
+      mk_([x], [y])       -> x < y,
+      mk_([x], [y]^-)     -> x <= y,
+      mk_([x]^-, [y])     -> x < y,
+      mk_([x]^s1, [y]^t1) -> x < y or x = y and lexicographic[@a](s1, t1),
+      mk_(-,-)            -> false
+    end
+    post RESULT <=> exists i in set {0,...,Numeric`min(len s, len t)}
+                         & (forall j in set {1,...,i} & s(j) = t(j)) and
+                           let s1 = s(i+1,...,len s),
+                               t1 = t(i+1,...,len t)
+                           in s1 = [] and t1 <> [] or
+                              s1 <> [] and t1 <> [] and hd s1 < hd t1
+  measure size11;
+
+  -- Lexicographic ordering on sequences by the provided order relation.
+  lexicographicWith[@a]: (@a * @a +> bool) +> seq of @a * seq of @a +> bool
+  lexicographicWith(o)(s, t) ==
+    cases mk_(s, t):
+      mk_([], [-])        -> true,
+      mk_([], -^-)        -> true,
+      mk_([x], [y])       -> o(x, y),
+      mk_([x], [y]^-)     -> o(x, y) or x = y,
+      mk_([x]^-, [y])     -> o(x, y),
+      mk_([x]^s1, [y]^t1) -> o(x, y) or x = y and lexicographicWith[@a](o)(s1, t1),
+      mk_(-,-)            -> false
+    end
+    post RESULT <=> exists i in set {0,...,Numeric`min(len s, len t)}
+                         & (forall j in set {1,...,i} & s(j) = t(j)) and
+                           let s1 = s(i+1,...,len s),
+                               t1 = t(i+1,...,len t)
+                           in s1 = [] and t1 <> [] or
+                              s1 <> [] and t1 <> [] and o(hd s1, hd t1)
+  measure size8;
+
+  -- Is one sequence a prefix of another?
+  preSeq[@a]: seq of @a * seq of @a +> bool
+  preSeq(pres,full) == pres = full(1,...,len pres);
+
+  -- Is one sequence a suffix of another?
+  postSeq[@a]: seq of @a * seq of @a +> bool
+  postSeq(posts,full) == preSeq[@a](reverse posts, reverse full);
+
+  -- Is one sequence a subsequence of another sequence?
+  subSeq[@a]: seq of @a * seq of @a +> bool
+  subSeq(sub,full) == sub = [] or (exists i,j in set inds full & sub = full(i,...,j));
+
+  -- Create a sequence of identical elements.
+  replicate[@a]: nat * @a +> seq of @a
+  replicate(n,x) == [ x | i in set {1,...,n} ]
+  post len RESULT = n and forall y in seq RESULT & y = x;
+
+  -- Pad a sequence on the left with a given item up to a specified length.
+  padLeft[@a]: seq of @a * @a * nat +> seq of @a
+  padLeft(sq,x,n) == replicate[@a](n-len sq, x) ^ sq
+  pre n >= len sq
+  post len RESULT = n and postSeq[@a](sq, RESULT);
+
+  -- Pad a sequence on the right with a given item up to a specified length.
+  padRight[@a]: seq of @a * @a * nat +> seq of @a
+  padRight(sq,x,n) == sq ^ replicate[@a](n-len sq, x)
+  pre n >= len sq
+  post len RESULT = n and preSeq[@a](sq, RESULT);
+
+  -- Pad a sequence with a given item such that it is centred in a specified length.
+  -- If padded by an odd number, add the extra item on the right.
+  padCentre[@a]: seq of @a * @a * nat +> seq of @a
+  padCentre(sq,x,n) == let space = if n <= len sq then 0 else n - len sq
+                       in padRight[@a](padLeft[@a](sq,x,len sq + (space div 2)),x,n);
+
+  -- Drop items from a sequence while a predicate is true.
+  dropWhile[@a]: (@a +> bool) * seq of @a +> seq of @a
+  dropWhile(p, s) == cases s:
+                       []      -> [],
+                       [x] ^ t -> if p(x) then dropWhile[@a](p, t) else s
+                     end
+  post postSeq[@a](RESULT, s) and
+       (RESULT = [] or not p(RESULT(1))) and
+       forall i in set {1,...,(len s - len RESULT)} & p(s(i))
+  measure size5;
+
+  -- Apply a function to all elements of a sequence.
+  xform[@a,@b]: (@a+>@b) * seq of @a +> seq of @b
+  xform(f,s) == [ f(x) | x in seq s ]
+  post len RESULT = len s and
+       (forall i in set inds s & RESULT(i) = f(s(i)));
+
+  -- Fold (iterate, accumulate, reduce) a binary function over a sequence.
+  -- The function is assumed to be associative and have an identity element.
+  fold[@a]: (@a * @a +> @a) * @a * seq of @a +> @a
+  fold(f, e, s) == cases s:
+                     []    -> e,
+                     [x]   -> x,
+                     s1^s2 -> f(fold[@a](f,e,s1), fold[@a](f,e,s2))
+                   end
+  --pre (forall x:@a & f(x,e) = x and f(e,x) = x)
+  --and forall x,y,z:@a & f(x,f(y,z)) = f(f(x,y),z)
+  measure size2;
+
+  -- Fold (iterate, accumulate, reduce) a binary function over a non-empty sequence.
+  -- The function is assumed to be associative.
+  fold1[@a]: (@a * @a +> @a) * seq1 of @a +> @a
+  fold1(f, s) == cases s:
+                   [e]   -> e,
+                   s1^s2 -> f(fold1[@a](f,s1), fold1[@a](f,s2))
+                 end
+  --pre forall x,y,z:@a & f(x,f(y,z)) = f(f(x,y),z)
+  measure size1;
+
+  -- Pair the corresponding elements of two lists of equal length.
+  zip[@a,@b]: seq of @a * seq of @b +> seq of (@a * @b)
+  zip(s,t) == [ mk_(s(i),t(i)) | i in set inds s ]
+  pre len s = len t
+  post len RESULT = len s and mk_(s,t) = unzip[@a,@b](RESULT);
+
+  -- Split a list of pairs into a list of firsts and a list of seconds.
+  unzip[@a,@b]: seq of (@a * @b) +> seq of @a * seq of @b
+  unzip(s) == mk_([ x.#1 | x in seq s], [ x.#2 | x in seq s])
+  post let mk_(t,u) = RESULT in len t = len s and len u = len s;
+  -- and s = zip[@a,@b](RESULT.#1,RESULT.#2);
+
+  -- Are the elements of a list distinct (no duplicates).
+  isDistinct[@a]: seq of @a +> bool
+  isDistinct(s) == len s = card elems s;
+
+  -- Are the elements of a sequence pairwise related?
+  pairwise[@a]: (@a * @a +> bool) +> seq of @a +> bool
+  pairwise(f)(s) == forall i in set {1,...,len s-1} & f(s(i), s(i+1));
+
+  -- Create a string presentation of a set.
+  format[@a]: (@a +> seq of char) * seq of char * seq of @a +> seq of char
+  format(f,sep,s) == cases s:
+                       []    -> "",
+                       [x]   -> f(x),
+                       t ^ u -> format[@a](f,sep,t) ^ sep ^ format[@a](f,sep,u)
+                     end
+  measure size4;
+
+  -- The following functions wrap primitives for convenience, to allow them for example to
+  -- serve as function arguments.
+
+  -- Concatenation of two sequences.
+  app[@a]: seq of @a * seq of @a +> seq of @a
+  app(m,n) == m^n;
+
+  -- Set of sequence elements.
+  setOf[@a]: seq of @a +> set of @a
+  setOf(s) == elems(s);
+
+  -- Measure functions.
+
+  size0[@a]: @a * seq1 of @a +> nat
+  size0(-, s) == len s;
+
+  size1[@a]: (@a * @a +> @a) * seq1 of @a +> nat
+  size1(-, s) == len s;
+
+  size2[@a]: (@a * @a +> @a) * @a * seq of @a +> nat
+  size2(-, -, s) == len s;
+
+  size3[@a]: seq1 of @a * seq1 of @a +> nat
+  size3(-, s) == len s;
+
+  size4[@a]: (@a +> seq of char) * seq of char * seq of @a +> nat
+  size4(-, -, s) == len s;
+
+  size5[@a]: (@a +> bool) * seq of @a +> nat
+  size5(-, s) == len s;
+
+  size6[@a]: (@a * @a +> bool) * @a * seq of @a +> nat
+  size6(-,-,s) == len s;
+
+  size7[@a]: (@a * @a +> bool) * seq of @a +> nat
+  size7(-,s) == len s;
+
+  size8[@a]: (@a * @a +> bool) * seq of @a * seq of @a +> nat
+  size8(-,s,t) == len s + len t;
+
+  size9[@a]: @a * seq of @a +> nat
+  size9(-,s) == len s;
+
+  size10[@a]: seq of @a +> nat
+  size10(s) == len s;
+
+  size11[@a]: seq of @a * seq of @a +> nat
+  size11(-, s) == len s;
+
+end Seq

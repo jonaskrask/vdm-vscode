@@ -1,0 +1,32 @@
+\begin{vdm_al}
+class Timer
+
+instance variables
+
+currentTime : nat := 0;
+private static timerInstance : Timer := new Timer(); 
+
+values
+
+stepLength : nat = 10;
+
+operations
+
+private Timer: () ==> Timer
+Timer() ==
+  skip;
+  
+pure public static GetInstance: () ==> Timer
+GetInstance() ==
+  return timerInstance;
+
+public StepTime : () ==> ()
+StepTime() ==
+  currentTime := currentTime + stepLength;
+
+pure public GetTime : () ==> nat
+GetTime() ==
+  return currentTime;
+
+end Timer
+\end{vdm_al}

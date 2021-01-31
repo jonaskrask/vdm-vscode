@@ -1,0 +1,40 @@
+/**
+ * Test that the Sort class is a stable sort (the order of "equal" items is preserved).
+ */
+class StableTests is subclass of TestCase
+types
+	R ::
+		ordered	: nat
+		ignored	: nat;
+
+values
+	S1 = [mk_R(1,1), mk_R(2,2), mk_R(1,3), mk_R(2,4), mk_R(1,5), mk_R(2,6)]
+
+functions
+	lessR: R * R -> bool
+	lessR(a, b) ==
+		a.ordered < b.ordered;	-- Only depends on one field, to check for stable sorting
+
+	test1: seq of R -> seq of R
+	test1(s) == Sort`sort[R](s, lessR)
+
+	pre forall i, j in set inds s &
+		(i < j) => (s(i).ignored < s(j).ignored)
+
+	post forall i, j in set inds RESULT &
+		(RESULT(i).ordered = RESULT(j).ordered and i < j) => (RESULT(i).ignored < RESULT(j).ignored);
+
+operations
+	protected runTest : () ==> ()
+	runTest() ==
+		Assert`assertTrue("StableTests failed",
+			test1(S1) = [mk_R(1,1), mk_R(1,3), mk_R(1,5), mk_R(2,2), mk_R(2,4), mk_R(2,6)]);
+
+traces
+	StabilityTest :
+		let S = {1, ..., 5} in
+		let a, b, c, d, e in set S in
+		let A = [ mk_R(a, 1), mk_R(b, 2), mk_R(c, 3), mk_R(d, 4), mk_R(e, 5) ] in
+			test1(A);
+
+end StableTests

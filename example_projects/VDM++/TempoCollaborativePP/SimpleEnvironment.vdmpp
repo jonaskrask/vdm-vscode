@@ -1,0 +1,48 @@
+class TestEnvironment is subclass of Environment
+
+instance variables 
+
+simtime : [nat];
+time : nat;
+sit: EdgeSit;
+falling: bool; 
+
+operations 
+
+public TestEnvironment: Network * map World`TMSId to TMS * [nat] ==> TestEnvironment 
+TestEnvironment(net, tms, t) == (
+	let - = Environment(net, tms) in skip;
+	simtime := t;
+	time := 0;
+	sit := mk_(0,120,0,false,false);
+	falling := true
+);
+
+public Run: () ==> ()
+Run() == while not isFinished() do (
+	dcl trafsit: TrafficSituation := {|->};
+	dcl control: TMS`Control := {|->};
+	for all e in set network.GetEdgeIds() do trafsit := trafsit ++ {e |-> sit};
+	for all id in set dom tms_m do (tms_m(id).Step(trafsit));
+  for all id in set dom tms_m do (tms_m(id).MakeOffers());
+  for all id in set dom tms_m do (tms_m(id).EvaluateOffers());
+  for all id in set dom tms_m do let c = tms_m(id).FinaliseOffers() in control := control ++ c;
+	IO`printf("%s\nEdge situation: %s\nControl measures: %s\n", [time, sit, control]);
+	time := time+1;
+	UpdateSit()
+);
+
+private UpdateSit: () ==> ()
+UpdateSit() == (
+	if falling then
+		sit := mk_(sit.#1, sit.#2 - 5, sit.#3, false, false)
+	else
+		sit := mk_(sit.#1, sit.#2 + 5, sit.#3, false, false);
+	if sit.#2 = 0 and falling then falling := false;
+	if sit.#2 = 120 and not falling then falling := true;
+);
+
+protected isFinished: () ==> bool
+isFinished() == return if simtime <> nil then time >= simtime else false;
+
+end TestEnvironment

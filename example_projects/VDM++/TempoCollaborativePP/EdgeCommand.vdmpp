@@ -1,0 +1,22 @@
+class EdgeCommand
+
+	instance variables
+		public curSpeed     : nat := 0;
+		public openNumLanes : nat := 0;
+		
+		-- blocked due to traffic-lights / accidents
+		public isBlocked    : bool := false;
+
+	  -- weather
+		public minTimeBetweenCars: real := 0.0;
+
+operations
+
+public Update: nat * nat * bool * real ==> ()
+Update(cs,onl,ib,mtbc) ==
+  (curSpeed := cs;
+   openNumLanes := onl;
+   isBlocked := ib;
+   minTimeBetweenCars := mtbc);
+   
+end EdgeCommand

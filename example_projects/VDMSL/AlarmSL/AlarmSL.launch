@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<launchConfiguration type="org.overture.ide.vdmsl.debug.launchConfigurationType">
+<intAttribute key="vdm_debug_session_id" value="1"/>
+<booleanAttribute key="vdm_launch_config_create_coverage" value="true"/>
+<booleanAttribute key="vdm_launch_config_enable_logging" value="false"/>
+<stringAttribute key="vdm_launch_config_memory_option" value=""/>
+<stringAttribute key="vdm_launch_config_remote_control_class" value=""/>
+<booleanAttribute key="vdm_launch_config_remote_debug" value="false"/>
+<stringAttribute key="vdm_launch_config_project" value="AlarmSL"/>
+<stringAttribute key="vdm_launch_config_expression" value="DEFAULT`Run(e1)"/>
+<booleanAttribute key="vdm_launch_config_static_method" value="true"/>
+<stringAttribute key="vdm_launch_config_default" value="DEFAULT"/>
+<stringAttribute key="vdm_launch_config_method" value="Run(e1)"/>
+<stringAttribute key="vdm_launch_config_module" value="DEFAULT"/>
+</launchConfiguration>

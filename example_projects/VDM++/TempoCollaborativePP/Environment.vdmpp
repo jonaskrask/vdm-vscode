@@ -1,0 +1,37 @@
+class Environment
+
+types
+
+public Performance ::            
+  pol : map Network`EdgeId to Polution
+  veh_traveldist : nat;
+
+public EdgeSit = CarDensity * AvgSpeed * Polution * Incident * BridgeOpen;
+public TrafficSituation = map Network`EdgeId to EdgeSit;
+  
+public CarDensity = nat;
+public AvgSpeed = nat;
+public Polution = nat;
+public Incident = bool;
+public BridgeOpen = bool
+  
+instance variables
+
+protected network : Network := new Network({|->});
+protected tms_m : map World`TMSId to TMS := {|->};  
+  
+operations
+
+public Environment: Network * map World`TMSId to TMS ==> Environment 
+Environment(net, tms) == (
+	network := net;
+	tms_m := tms
+);
+
+public Run: bool * seq of char * seq1 of char ==> ()
+Run(-,-,-) == skip;
+
+protected isFinished: () ==> bool
+isFinished() == return false;
+
+end Environment

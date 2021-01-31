@@ -1,0 +1,33 @@
+{
+	nodes: [
+		{id: 13},
+		{id: 14},
+		{id: 17}
+	],
+	edges: [
+		{
+			id: 101, 
+			src: 13,
+			dst: 14,
+			length: 2100,
+			speedLimit: 120,
+			capacity: 40
+		},
+		{
+			id: 102,
+			src: 14,
+			dst: 17,
+			length: 1800,
+			speedLimit: 80,
+			capacity: 41
+		},
+		{
+			id: 103,
+			src: 14,
+			dst: 13,
+			length: 550,
+			speedLimit: 70,
+			capacity: 42
+		}
+	]
+}

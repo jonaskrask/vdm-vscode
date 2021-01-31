@@ -1,0 +1,223 @@
+class InterlockingSystem
+
+types
+    public Coordinate = nat * nat;
+    public NonEmptyString = seq1 of char;
+    
+    -- // Tracks //
+    public TrackKind = <Underwater> | <Underground> | <Overground> | <Elevated>;
+    public Track :: location: Coordinate
+                    kind: TrackKind
+                    capacity:- nat1;            -- Number of parallel tracks/rails at this track section.
+    
+    public CapacityMap = map Track to int;
+    
+    -- // Metro lines //
+    public MetroLineName = NonEmptyString;
+    public MetroLine :: name: MetroLineName
+                        tracks: seq1 of Track
+    
+    -- Metro lines are assumed to be circular (i.e. the first and last track are the same).
+    inv mk_MetroLine(-, t) == IsCircular(t);
+    
+values
+    private trackPriorities: seq of TrackKind = [ <Underwater>, <Underground>, <Elevated>, <Overground> ];  -- Highest to lowest.
+    
+instance variables
+    private lines: inmap MetroLineName to MetroLine := { |-> };
+    private units: inmap MetroUnit`MetroUnitId to MetroUnit := { |-> };
+    
+    -- All metro units with metro line associations must be associated with existing metro lines.
+    inv forall u in set rng units &
+            u.GetLine() <> nil => u.GetLine() in set rng lines;
+    
+    -- All tracks must accommodate all metro units. If any track exceeds its capacity, it is overloaded and metro units may collide.
+    inv TracksAccommodateAllMetroUnits();
+    
+functions
+    -- // Metro lines and tracks //
+    private static AllTracks: set of MetroLine -> set of Track
+                   AllTracks(allLines) == dunion { elems line.tracks | line in set allLines };
+    
+    public static IsCircular: seq1 of Track -> bool
+                  IsCircular(tracks) == hd tracks = tracks(len tracks);
+
+    public static InRangeOfTracks: [MetroLine] * nat1 -> bool
+                  InRangeOfTracks(line, trackIndex) == line <> nil => trackIndex <= len line.tracks;
+    
+    public static NextTrackIndex: [MetroLine] * nat1 -> nat1
+                  NextTrackIndex(line, currentTrackIndex) ==
+                        if line = nil then
+                            currentTrackIndex
+                        elseif currentTrackIndex < len line.tracks - 1 then
+                            currentTrackIndex + 1
+                        else
+                            1
+    post InRangeOfTracks(line, RESULT);
+    
+    public static TrackAt: [MetroLine] * nat1 -> [Track]
+                  TrackAt(line, trackIndex) ==
+                        if line <> nil then
+                            line.tracks(trackIndex)
+                        else
+                            nil
+    pre InRangeOfTracks(line, trackIndex);
+    
+    public static CreateCircularLine: MetroLineName * seq1 of Track -> MetroLine
+                  CreateCircularLine(name, tracks) == mk_MetroLine(name, tracks)
+    pre IsCircular(tracks);
+    
+    public static CreateReversedCircularLine: MetroLineName * seq1 of Track -> MetroLine
+                  CreateReversedCircularLine(name, tracks) == mk_MetroLine(name, Reverse(tracks))
+    pre IsCircular(tracks);
+    
+    public static CreateLinearLine: MetroLineName * seq1 of Track -> MetroLine
+                  CreateLinearLine(name, tracks) == mk_MetroLine(name, LinearToCircularLine(tracks));
+    
+    public static LinearToCircularLine: seq1 of Track -> seq1 of Track
+                  LinearToCircularLine(tracks) == tracks ^ (tl Reverse(tracks))
+    post IsCircular(RESULT);
+    
+    public static Reverse: seq of Track -> seq of Track
+                  Reverse(tracks) ==
+                      if tracks = [ ] then
+                          [ ]
+                      else
+                          Reverse(tl tracks) ^ [ hd tracks ]
+    measure Length;
+    
+    private static Length: seq of Track -> nat
+                   Length(tracks) == len tracks;
+    
+    -- // Units //
+    private static UnitSetToSequence: set of MetroUnit -> seq of MetroUnit
+                   UnitSetToSequence(unitSet) ==
+                       if unitSet = { } then
+                           [ ]
+                       else
+                           let unit in set unitSet
+                           in
+                               [ unit ] ^ UnitSetToSequence(unitSet \ { unit })
+    measure Card;
+    
+    private static Card: set of MetroUnit -> nat
+                   Card(unitSet) == card unitSet;
+    
+operations
+    public AddUnit: MetroUnit ==> ()
+           AddUnit(unit) == units := units munion { unit.GetId() |-> unit }
+    pre unit.GetId() not in set dom units and
+        (unit.GetLine() <> nil => unit.GetLine() in set rng lines) and
+        (unit.GetLocation() <> nil => RemainingCapacityOf(unit.GetLocation()) > 0);
+    
+    public RemoveUnit: MetroUnit`MetroUnitId ==> ()
+           RemoveUnit(unitId) == units := { unitId } <-: units;
+    
+    public AddLine: MetroLine ==> ()
+           AddLine(line) == lines := lines munion { line.name |-> line }
+    pre line.name not in set dom lines;
+    
+    public RemoveLine: MetroLineName ==> ()
+           RemoveLine(lineName) == lines := { lineName } <-: lines;
+    
+    pure
+    public IsAnyUnitStuck: () ==> bool
+           IsAnyUnitStuck() ==
+                return exists u in set rng units &
+                           u.IsStuck();
+    
+    public FindStuckUnit: () ==> MetroUnit
+           FindStuckUnit() ==
+                let u in set rng units be st u.IsStuck()
+                in
+                    return u
+    pre IsAnyUnitStuck();
+    
+    public Tick: () ==> ()
+           Tick() ==
+                def unitsAllowedToRun: set of MetroUnit = UnitsAllowedToRun()
+                in
+                (
+                    for all u in set rng units \ unitsAllowedToRun do
+                        u.Stop();
+                        
+                    for all u in set unitsAllowedToRun do
+                        u.Run();
+                )
+    post forall track in set AllTracks(rng lines) &
+             NumberOfEnteringUnitsOn(track) <= RemainingCapacityOf(track);
+    
+    -- // Track capacities //
+    pure 
+    private TracksAccommodateAllMetroUnits: () ==> bool
+            TracksAccommodateAllMetroUnits() ==
+                return forall capacity in set rng RemainingCapacities() &
+                           capacity >= 0;
+    
+    pure
+    private RemainingCapacities: () ==> CapacityMap
+            RemainingCapacities() == return { track |-> RemainingCapacityOf(track) | track in set AllTracks(rng lines) };
+    
+    pure 
+    private RemainingCapacityOf: Track ==> int
+            RemainingCapacityOf(track) ==
+                def numberOfUnitsOnTrack: nat = card { unit | unit in set rng units & unit.GetLocation() = track }
+                in
+                    return track.capacity - numberOfUnitsOnTrack;
+    
+    pure
+    private NumberOfEnteringUnitsOn: Track ==> int
+            NumberOfEnteringUnitsOn(track) ==
+                return card { unit | unit in set rng units & unit.GetNextLocation() = track and unit.GetState() = <Running> };
+    
+    -- // Interlocking mechanism //
+    private UnitsAllowedToRun: () ==> set of MetroUnit
+            UnitsAllowedToRun() ==
+            (
+                dcl capacities: CapacityMap := RemainingCapacities(),
+                    unitsAllowedToRun: set of MetroUnit := { };
+                def prioritisedUnits: seq of MetroUnit = PrioritiseUnits(rng units, trackPriorities)
+                in
+                (
+                    for unit in prioritisedUnits do
+                    (
+                        if MayRun(capacities, unit) then
+                        (
+                            capacities := Occupied(capacities, unit);
+                            unitsAllowedToRun := unitsAllowedToRun union { unit };
+                        );
+                    );
+                    
+                    return unitsAllowedToRun;
+                );
+            );
+    
+    public PrioritiseUnits: set of MetroUnit * seq of TrackKind ==> seq of MetroUnit 
+           PrioritiseUnits(unitsToPrioritise, priorities) ==
+                if priorities = [ ] then
+                    return [ ]
+                else
+                    def nextUnits = UnitsOn(unitsToPrioritise, hd priorities);
+                        pendingUnits = unitsToPrioritise \ nextUnits
+                    in
+                        return UnitSetToSequence(nextUnits) ^ PrioritiseUnits(pendingUnits, tl priorities)
+    post forall unit in set elems RESULT &
+             unit.GetNextLocation() in set AllTracks(rng lines);
+    
+    private UnitsOn: set of MetroUnit * TrackKind ==> set of MetroUnit
+            UnitsOn(unitsToFilter, trackKind) ==
+                return { unit | unit in set unitsToFilter & unit.GetLocation() <> nil and unit.GetLocation().kind = trackKind };
+    
+    private MayRun: CapacityMap * MetroUnit ==> bool
+            MayRun(capacities, unit) == return capacities(unit.GetNextLocation()) > 0
+    pre unit.GetNextLocation() in set dom capacities;
+    
+    private Occupied: CapacityMap * MetroUnit ==> CapacityMap
+            Occupied(capacities, unit) ==
+                def currentRemainingCapacity = capacities(unit.GetNextLocation())
+                in
+                    return capacities ++ { unit.GetNextLocation() |-> currentRemainingCapacity - 1 }
+    pre unit.GetNextLocation() in set dom capacities and
+        capacities(unit.GetNextLocation()) > 0;
+    
+end InterlockingSystem

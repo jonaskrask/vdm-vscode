@@ -1,0 +1,118 @@
+/*
+   A module that specifies and defines general purpose functions over numerics.
+
+   All definitions are explicit and executable.
+*/
+module Numeric
+imports from Seq all
+exports functions differBy: real * real * real +> bool;
+                  formatNat: nat +> seq1 of char;
+                  decodeNat: seq1 of char +> nat;
+                  fromChar: char +> nat;
+                  toChar: nat +> char;
+                  zeroPad: nat * nat1 +> seq1 of char;
+                  min: real * real +> real;
+                  max: real * real +> real;
+                  less: real * real +> bool;
+                  leq: real * real +> bool;
+                  grtr: real * real +> bool;
+                  geq: real * real +> bool;
+                  add: real * real +> real;
+                  mult: real * real +> real
+
+definitions
+
+values
+
+  DIGITS:seq of char = "0123456789";
+
+functions
+
+  -- Do two numerics differ by at least a specified value.
+  differBy: real * real * real +> bool
+  differBy(x, y, delta) == abs (x-y) >= delta
+  pre delta > 0;
+
+  -- Format a natural number as a string of digits.
+  formatNat: nat +> seq1 of char
+  formatNat(n) == if n < 10
+                  then [toChar(n)]
+                  else formatNat(n div 10) ^ formatNat(n mod 10)
+  measure size1;
+
+  -- Create a natural number from a sequence of digit characters.
+  decodeNat: seq1 of char +> nat
+  decodeNat(s) == cases s:
+                    [c] -> fromChar(c),
+                    u^[c] -> 10*decodeNat(u)+fromChar(c)
+                  end
+  measure size2;
+
+  -- Convert a character digit to the corresponding natural number.
+  fromChar: char +> nat
+  fromChar(c) == Seq`indexOf[char](c,DIGITS)-1
+  pre c in set elems DIGITS
+  post toChar(RESULT) = c;
+
+  -- Convert a numeric digit to the corresponding character.
+  toChar: nat +> char
+  toChar(n) == DIGITS(n+1)
+  pre n <= 9;
+  --post fromChar(RESULT) = n
+
+  -- Format a natural number as a string with leading zeros up to a specified length.
+  zeroPad: nat * nat1 +> seq1 of char
+  zeroPad(n,w) == Seq`padLeft[char](formatNat(n),'0',w);
+
+  /*
+    The following are simple functions that are of limited value in their own right.
+    The are provided to allow them for example to serve as function arguments.
+  */
+
+  -- Sum of two numbers.
+  add: real * real +> real
+  add(m,n) == m+n;
+
+  -- Product of two numbers.
+  mult: real * real +> real
+  mult(m,n) == m*n;
+
+  -- The minimum of two numerics.
+  min: real * real +> real
+  min(x,y) == if x < y then x else y
+  post RESULT in set {x,y} and RESULT <= x and RESULT <= y;
+
+  -- The maximum of two numerics.
+  max: real * real +> real
+  max(x,y) == if x > y then x else y
+  post RESULT in set {x,y} and RESULT >= x and RESULT >= y;
+
+  -- Numeric less than.
+  -- Useful for passing as a function argument.
+  less: real * real +> bool
+  less(x,y) == x < y;
+
+  -- Numeric less than or equal.
+  -- Useful for passing as a function argument.
+  leq: real * real +> bool
+  leq(x,y) == x <= y;
+
+  -- Numeric greater than.
+  -- Useful for passing as a function argument.
+  grtr: real * real +> bool
+  grtr(x,y) == x > y;
+
+  -- Numeric greater than or equal.
+  -- Useful for passing as a function argument.
+  geq: real * real +> bool
+  geq(x,y) == x >= y;
+
+  -- Measure functions.
+
+  size1: nat +> nat
+  size1(n) == n;
+
+  size2: seq1 of char +> nat
+  size2(s) == len s;
+
+end Numeric

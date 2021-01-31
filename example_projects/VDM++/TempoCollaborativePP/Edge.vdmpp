@@ -1,0 +1,32 @@
+class Edge
+
+types
+
+public NodeId = token;
+
+	instance variables
+		public maxSpeed  : nat1 := 1;
+		public laneCount : nat1 := 1;
+		public length    : nat1 := 1;
+    startN : NodeId;
+    endN : NodeId;
+  
+operations
+
+public Edge: nat * nat1 * nat1 * NodeId * NodeId ==> Edge
+Edge(ms,lc,l,sn,en) ==
+  (maxSpeed := ms;
+   laneCount := lc;
+   length := l;
+   startN := sn;
+   endN := en);
+    
+pure public GetEndNode: () ==> NodeId
+GetEndNode() ==
+  return endN;
+   
+pure public GetStartNode: () ==> NodeId
+GetStartNode() ==
+  return startN;
+    
+end Edge

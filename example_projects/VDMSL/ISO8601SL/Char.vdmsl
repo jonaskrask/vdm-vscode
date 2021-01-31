@@ -1,0 +1,110 @@
+/*
+   A module that specifies and defines general purpose types, constants and functions over
+   characters and strings (sequences characters).
+
+   All functions are explicit and executable. Where a non-executable condition adds value, it
+   is included as a comment.
+*/
+module Char
+imports from Seq all
+exports types Upper
+              Lower
+              Letter
+              Digit
+              Octal
+              Hex
+              AlphaNum
+              AlphaNumUpper
+              AlphaNumLower
+              Space
+              WhiteSpace
+              Phrase
+              PhraseUpper
+              PhraseLower
+              Text
+              TextUpper
+              TextLower
+        values SP, TB, CR, LF : char
+               WHITE_SPACE, UPPER, LOWER, DIGIT, OCTAL, HEX : set of char
+               UPPERS, LOWERS, DIGITS, OCTALS, HEXS: seq of char
+        functions toLower: Upper +> Lower
+                  toUpper: Lower +> Upper
+
+definitions
+
+types
+
+  Upper = char
+  inv c == c in set UPPER;
+
+  Lower = char
+  inv c == c in set LOWER;
+
+  Letter = Upper | Lower;
+
+  Digit = char
+  inv c == c in set DIGIT;
+  
+  Octal = char
+  inv c == c in set OCTAL;
+
+  Hex = char
+  inv c == c in set HEX;
+
+  AlphaNum = Letter | Digit;
+
+  AlphaNumUpper = Upper | Digit;
+
+  AlphaNumLower = Lower | Digit;
+
+  Space = char
+  inv sp == sp = ' ';
+
+  WhiteSpace = char
+  inv ws == ws in set WHITE_SPACE;
+
+  Phrase = seq1 of (AlphaNum|Space);
+
+  PhraseUpper = seq1 of (AlphaNumUpper|Space);
+
+  PhraseLower = seq1 of (AlphaNumLower|Space);
+
+  Text = seq1 of (AlphaNum|WhiteSpace);
+
+  TextUpper = seq1 of (AlphaNumUpper|WhiteSpace);
+
+  TextLower = seq1 of (AlphaNumLower|WhiteSpace);
+
+values
+
+  SP:char = ' ';
+  TB:char = '\t';
+  CR:char = '\r';
+  LF:char = '\n';
+  WHITE_SPACE:set of char = {SP,TB,CR,LF};
+  UPPER:set of char = {'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q',
+                       'R','S','T','U','V','W','X','Y','Z'};
+  UPPERS: seq of Upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  LOWER:set of char = {'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q',
+                       'r','s','t','u','v','w','x','y','z'};
+  LOWERS: seq of Lower = "abcdefghijklmnopqrstuvwxyz";
+  DIGIT:set of char = {'0','1','2','3','4','5','6','7','8','9'};
+  DIGITS:seq of Digit = "0123456789";
+  OCTAL:set of char = {'0','1','2','3','4','5','6','7'};
+  OCTALS:seq of Octal = "01234567";
+  HEX:set of char = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
+  HEXS:seq of Hex = "0123456789ABCDEF";
+
+functions
+
+  -- Convert upper case letter to lower case.
+  toLower: Upper +> Lower
+  toLower(c) == LOWERS(Seq`indexOf[Upper](c,UPPERS))
+  post toUpper(RESULT) = c;
+
+  -- Convert lower case letter to upper case.
+  toUpper: Lower +> Upper
+  toUpper(c) == UPPERS(Seq`indexOf[Lower](c,LOWERS));
+  --post toLower(RESULT) = c;
+
+end Char

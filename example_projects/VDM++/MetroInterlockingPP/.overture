@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<overture>
+	<group key="org.overture.ide.plugins.latex">
+		<booleanAttribute key="LATEX_GENERATE_MAIN_DOCUMENT" value="true"/>
+		<stringAttribute key="LATEX_MAIN_DOCUMENT" value="MetroInterlocking.tex"/>
+		<booleanAttribute key="LATEX_MODEL_ONLY" value="true"/>
+		<booleanAttribute key="LATEX_MARK_COVERAGE" value="true"/>
+		<booleanAttribute key="LATEX_INCLUDE_COVERAGETABLE" value="true"/>
+	</group>
+</overture>

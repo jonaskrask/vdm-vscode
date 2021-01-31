@@ -1,0 +1,627 @@
+class TMS
+
+values
+
+LOWSPEEDTHRESHOLD : nat = 40;
+HIGHSPEEDTHRESHOLD : nat = 70;
+LOWDENSITYTHRESHOLD : nat = 10;
+HIGHDENSITYTHRESHOLD : nat = 15;
+DELTASPEED : nat = 20;
+NORMALGREENTIME : nat = 10;
+NORMALREDTIME : nat = 1;
+LONGGREENTIME : nat = 30;
+LONGREDTIME : nat = 20;
+MAXPRIORITY : nat = 3;
+STANDARDGREENTIME : nat = 10;
+STANDARDREDTIME : nat = 15;
+OPEN : bool = true;
+CLOSED : bool = false;
+SERIOUSCONGESTION : nat = 100;
+STEPREDTIME : nat = 5;
+STEPGREENTIME : nat = 20;
+ACCEPTABLECOSTS : nat = 10
+
+types
+  
+public Priority = nat1
+inv p == p <= MAXPRIORITY ;
+
+public Object = Bridge;
+
+public Bridge ::
+   status: BridgeStatus;
+   
+public BridgeStatus = <open>|<closed>;
+  
+public TCM = HardShoulder | MaxSpeed | TrafficLight | RampMeter | Diversion | LaneClosure;
+
+public MaxSpeed ::
+  speed : [nat];
+  
+public Diversion ::
+ -- routes : set of seq of Network`EdgeId;
+  route : [seq of char];
+  
+public TrafficLight ::
+  on: bool
+  greentime : nat;
+
+public RampMeter ::
+  redtime : nat;
+  
+public HardShoulder ::
+  open : bool;
+  
+public LaneClosure ::
+  closed : nat;
+ 
+public Control = map Network`EdgeId to set of TCM;
+
+-- The ActControl is different from Control in that it also contains information about the requestor so 
+-- it can be removed when no longer needed...
+public ActControl = map Network`EdgeId to set of (Network`EdgeId * TCM);
+
+public Bridges = map Network`EdgeId to Bridge;
+
+public Priorities = map Network`EdgeId to Priority;
+
+public LeadsTo = map Network`EdgeId to set of Network`EdgeId;
+
+ ServiceMap = map ServiceId to set of TCM;
+ 
+public ServiceId = <IncreaseInput> | <DecreaseInput> | <IncreaseOutput> | <DecreaseOutput> | <IncreaseCapacity> | <DecreaseCapacity> | <Divert>;
+ 
+ values
+-- TODO Define values here
+instance variables
+
+myid: seq of char;
+
+leadsto: LeadsTo := {|->};
+network: Network;
+myedges : set of Network`EdgeId; -- ids must be edge ids that this TMS control
+interestededges : set of Network`EdgeId; --those additional edges I would like to get information about
+inv TMSInv(myedges, interestededges);
+-- Tom-Tom TMSs would have no edges to control but would have all edges as interestededges
+-- and as a consequence can give advice to their cars of better routes given the new TMCs
+
+control : Control := {|->}; -- these are the possible TCMs for each edge
+actctrl : ActControl := {|->}; -- these are the actual TCMs for each edge
+--inv forall tcm in set dunion rng actctrl & is_MaxSpeed(tcm) => tcm.speed <> nil;
+bridges : Bridges := {|->}; -- this maps specifies which edges have a bridge
+trafsit : Environment`TrafficSituation := {|->};
+
+trigger: Control := {|->};  -- these are the new TCMs being triggered in this step
+prios: Priorities := {|->};
+inv dom trigger subset dom control;
+inv dom actctrl subset dom control;
+inv dom control subset myedges;
+
+oldproblematicedges: set of Network`EdgeId := {};
+problematicedges: set of Network`EdgeId := {};
+incidents: set of Network`EdgeId := {};
+
+public negos: int := 0;
+public acceptedoffers: int := 0;
+public averagedensity: real :=0;
+public densityperedge: map Network`EdgeId to real := {|->};
+public averagevelocity: real :=0;
+public velocityperedge: map Network`EdgeId to real := {|->};
+internaledges : map Network`EdgeId to set of Network`EdgeId;
+world : World;
+
+operations
+
+public TMS: seq of char * Network ==> TMS
+TMS(id, n) ==
+  (myid := id; 
+   myedges := {};
+   interestededges := {};
+   internaledges := {|->};
+   control := {|->};
+   network := n);
+
+public SetWorld: World ==> ()
+SetWorld(w) ==
+   world := w;
+
+public ResetNetwork: Network * World ==> ()
+ResetNetwork(n,w) ==
+  (network := n;
+   world := w;
+  );
+  
+public AddEdge: set of Network`EdgeId ==> ()
+AddEdge(eid_s) ==
+  myedges := myedges union eid_s;
+  
+public AddTCM: Network`EdgeId * TCM ==> ()
+AddTCM(eid, tcm) ==
+  control(eid) := (if eid in set dom control
+                   then control(eid) 
+                   else {}) union {tcm};
+                   
+public AddBridge: Network`EdgeId * Bridge ==> ()
+AddBridge(eid, bridge) ==
+  bridges(eid) := bridge;
+                   
+public AddPriority: Network`EdgeId * Priority ==> ()
+AddPriority(eid, prio) ==
+  prios(eid) := prio;
+
+public CalculateInterest: Network ==> ()
+CalculateInterest(n) == (
+	dcl interest: set of Network`EdgeId := {};
+	for all eid in set myedges do interest := interest union n.OfInterestTo(eid);
+	interestededges := interest \ myedges
+);
+
+RecordDensityVelocity: Environment`TrafficSituation ==> ()
+RecordDensityVelocity(ts) ==
+(dcl accumulatingdensity: real :=0,
+     accumulatingvelocity: real :=0;
+ for all eid in set myedges 
+ do let mk_(d,v,-,-,-) = ts(eid) in
+   (accumulatingdensity := accumulatingdensity + d;
+    accumulatingvelocity := accumulatingvelocity + v;
+    if eid in set dom densityperedge 
+   then densityperedge(eid) := d
+   else densityperedge := densityperedge munion {eid|->d};
+   if eid in set dom velocityperedge 
+   then velocityperedge(eid) := v
+   else velocityperedge := velocityperedge munion {eid|->v}
+   );
+   averagedensity := accumulatingdensity/card myedges;
+   averagevelocity := accumulatingvelocity/card myedges;
+);
+
+GenerateMyOwnTriggers: Environment`TrafficSituation ==> ()
+GenerateMyOwnTriggers(ts) ==
+(oldproblematicedges := problematicedges;
+ problematicedges := {};
+ RecordDensityVelocity(ts); -- Done for visulisation purposes.
+(for all eid in set dom control 
+ do
+   let tcm_s = control(eid) in
+    (IO`printf("Controls avaliable for %s: %s\n",[eid,tcm_s]);
+    if tcm_s <> {}
+     then (if exists tcm in set tcm_s & is_HardShoulder(tcm)
+           then trigger(eid) := if eid in set dom trigger 
+                                then AddTrig(trigger(eid),SetHardShoulder(eid, ts(eid))) 
+                                else AddTrig({},SetHardShoulder(eid, ts(eid)));
+           if exists tcm in set tcm_s & is_LaneClosure(tcm)
+           then trigger(eid) := if eid in set dom trigger 
+                                then AddTrig(trigger(eid),SetLaneClosure(eid, ts(eid))) 
+                                else AddTrig({},SetLaneClosure(eid, ts(eid)));
+           if exists tcm in set tcm_s & is_MaxSpeed(tcm)
+           then trigger(eid) := if eid in set dom trigger 
+                                then AddTrig(trigger(eid),SetMaxSpeed(eid, ts(eid))) 
+                                else AddTrig({},SetMaxSpeed(eid, ts(eid)));
+           if exists tcm in set tcm_s & is_TrafficLight(tcm)
+           then trigger(eid) := if eid in set dom trigger 
+                                then AddTrig(trigger(eid),SetTrafficLight(eid, ts(eid))) 
+                                else AddTrig({},SetTrafficLight(eid, ts(eid)));
+           if exists tcm in set tcm_s & is_RampMeter(tcm)
+           then trigger(eid) := if eid in set dom trigger 
+                                then AddTrig(trigger(eid),SetRampMetering(eid, ts(eid))) 
+                                else AddTrig({},SetRampMetering(eid, ts(eid)))
+           else skip)
+     else skip);
+  for all rid in set myedges
+  do
+    let mk_(d,v,-,-,bridgeopen) = ts(rid) 
+    in 
+      (if v < LOWSPEEDTHRESHOLD or d > HIGHDENSITYTHRESHOLD or d = 0 or bridgeopen
+       then problematicedges := problematicedges union {rid}; 
+       bridges(rid) := if rid in set dom bridges and bridgeopen
+                       then mk_Bridge(<open>)
+                       else mk_Bridge(<closed>);
+       for all rid2 in set {beid | beid in set dom bridges & bridges(beid).status = <open>}
+       do
+         let eids = {leid | leid in set leadsto(rid2) 
+                          & leid in set dom control and 
+                            exists tcm in set control(leid) & is_Diversion(tcm)}
+         in 
+           for all eid in set eids
+           do
+             trigger(eid) := if eid in set dom trigger 
+                             then AddTrig(trigger(eid),SetDiversion(rid2)) 
+                             else AddTrig({},SetDiversion(rid2));
+       for all rid2 in set {beid | beid in set dom bridges & bridges(beid).status = <closed>}
+       do
+         let eids = {leid | leid in set leadsto(rid2) 
+                          & leid in set dom control and 
+                            exists tcm in set control(leid) & is_Diversion(tcm)}
+         in 
+           for all eid in set eids
+           do
+             trigger(eid) := if eid in set dom trigger 
+                             then AddTrig(trigger(eid),SetDiversion(nil)) 
+                             else AddTrig({},SetDiversion(nil)) 
+       );
+     if oldproblematicedges \problematicedges <> {}
+     then let non = oldproblematicedges \problematicedges
+          in skip;
+     IO`printf("Own triggers of %s: %s\n", [myid, trigger]);
+     IO`printf("Problematic edges of %s: %s\n", [myid, problematicedges]);
+     IO`printf("No longer Problematic edges of %s\n", [oldproblematicedges\problematicedges]);
+))
+pre dom control subset dom ts; 
+
+public UpdateInternalEdges: () ==> ()
+UpdateInternalEdges() ==
+  leadsto := {eid |->network.LeadsToInNSteps(eid,2) | eid in set myedges};
+  
+SetLaneClosure: Network`EdgeId * Environment`EdgeSit ==> set of TCM
+SetLaneClosure(eid, mk_(-,-,-,incident,-)) ==
+if incident 
+then (problematicedges := problematicedges union {eid}; 
+      incidents := incidents union {eid};
+      return {mk_LaneClosure(1)}
+     )
+elseif not incident and eid in set incidents
+then (actctrl := {eid} <-: actctrl;
+      problematicedges := problematicedges \ {eid};
+      incidents := incidents\{eid};
+      return {mk_LaneClosure(0)}
+     )
+else return {};
+
+SetHardShoulder: Network`EdgeId * Environment`EdgeSit ==> set of TCM
+SetHardShoulder(eid, mk_(d,v,-,-,-)) ==
+(IO`printf("Density at %s is %s\n",[eid,d]);
+if v < LOWSPEEDTHRESHOLD or d > HIGHDENSITYTHRESHOLD
+then (problematicedges := problematicedges union {eid}; 
+      if eid in set dom actctrl => forall tcm in set actctrl(eid) & not is_HardShoulder(tcm)
+      then (actctrl(eid) := {mk_(eid,mk_HardShoulder(true))} union 
+                            if eid in set dom actctrl
+                            then actctrl(eid)
+                            else {};
+           return {mk_HardShoulder(true)})
+      else return {}
+     )
+else (if v >= HIGHSPEEDTHRESHOLD and d <= LOWDENSITYTHRESHOLD --and eid in set dom actctrl
+      then (actctrl := {eid} <-: actctrl;
+            problematicedges := problematicedges \ {eid};
+            return {mk_HardShoulder(false)})
+      else return {}
+     )
+);
+
+SetMaxSpeed: Network`EdgeId * Environment`EdgeSit ==> set of TCM
+SetMaxSpeed(eid, mk_(d,-,-,-,-)) ==
+if d > HIGHDENSITYTHRESHOLD
+then (problematicedges := problematicedges union {eid}; 
+      if eid in set dom actctrl => forall tcm in set actctrl(eid) & not is_MaxSpeed(tcm)
+      then return {mk_MaxSpeed(network.GetMaxSpeed(eid)-DELTASPEED)}
+      else return {}
+     )
+else (if d <= LOWDENSITYTHRESHOLD -- and eid in set dom actctrl
+      then (actctrl := {eid} <-: actctrl;
+            problematicedges := problematicedges \ {eid};
+            return {mk_MaxSpeed(nil)})
+      else return {}
+     );
+
+pure SetDiversion: [Network`EdgeId] ==> set of TCM
+SetDiversion(eid) ==
+  if eid = nil
+  then return {} 
+  else return {mk_Diversion("Avoid " ^ eid)};
+
+SetTrafficLight: Network`EdgeId * Environment`EdgeSit ==> set of TCM
+SetTrafficLight(eid, mk_(d,-,-,-,-)) ==
+if d > HIGHDENSITYTHRESHOLD 
+then (problematicedges := problematicedges union {eid}; 
+      return {mk_TrafficLight(true, LONGGREENTIME)}
+     )
+elseif d < LOWDENSITYTHRESHOLD 
+then return {mk_TrafficLight(true, NORMALGREENTIME)}
+else return {};
+
+SetRampMetering: Network`EdgeId * Environment`EdgeSit ==> set of TCM
+SetRampMetering(eid, mk_(d,-,-,-,-)) ==
+if d > HIGHDENSITYTHRESHOLD 
+then (problematicedges := problematicedges union {eid}; 
+      return {mk_RampMeter(LONGREDTIME)}
+     )
+elseif d < LOWDENSITYTHRESHOLD 
+then (actctrl := {eid} <-: actctrl;
+      problematicedges := problematicedges \ {eid};
+      return {mk_RampMeter(NORMALREDTIME)})
+else return {};
+
+-- The following operation generates "reguests for help" by an edge with a "problem"
+-- from adjacent edges. The request for help is expressed in terms of a service required by
+-- the edge form the adjacent edge. From thte total set of services available this wil only
+-- be a request for <IncreaseInput> (for output edges) or <DecreaseOutput> (for input edges).
+GenerateRequestsForHelp: () ==> map Network`EdgeId to set of Network`Request
+GenerateRequestsForHelp() ==
+  (dcl requests: map Network`EdgeId to set of Network`Request := {|->};
+      for all eid in set problematicedges do
+        if exists ieid in set interestededges & 
+              {ieid, eid} subset dom network.GetConnections() and 
+              network.IsOutputEdge (ieid, eid)
+        then let ieid in set interestededges be st network.IsOutputEdge (ieid, eid)
+             in 
+               let severe = Utility(network.GetMaxSpeed(eid),trafsit(eid), prios(eid)),
+                   r = mk_Network`Request (eid, <IncreaseInput>, severe, 0, false)
+               in
+                 requests(ieid) := if ieid in set dom requests 
+                                   then requests(ieid) union {r}
+                                   else {r}
+        elseif exists ieid in set interestededges & 
+                  {ieid, eid} subset dom network.GetConnections() and 
+                  network.IsInputEdge (ieid, eid)
+        then let ieid in set interestededges be st network.IsInputEdge (ieid, eid)
+             in
+               let severe = Utility(network.GetMaxSpeed(eid),trafsit(eid), prios(eid)),
+                   r = mk_Network`Request (eid, <DecreaseOutput>, severe, 0, false),
+                   rm = {eid2 |-> mk_Network`Request (eid, <DecreaseOutput>, severe, 0, false)
+                        | eid2 in set leadsto(eid)}
+               in
+                 (requests(ieid) := if ieid in set dom requests 
+                                    then requests(ieid) union {r}
+                                    else {r};
+                  requests := requests ++ {eid3 |-> {rm(eid3)} union if eid3 in set dom requests
+                                                                     then requests(eid3)
+                                                                     else {}
+                                          | eid3 in set dom rm})
+        else skip;
+     return requests
+  )
+pre problematicedges subset dom trafsit and 
+    problematicedges subset dom prios;
+
+public Step: Environment`TrafficSituation ==> ()
+Step(ts) ==
+  (dcl deltcm : TCM;
+   IO`printf("Available controls for %s: %s\n", [myid, control]);
+  trigger:= {|->};
+   trafsit := ts;
+   GenerateMyOwnTriggers(ts);
+   let requests = GenerateRequestsForHelp() in
+   ( network.CancelOldProblematicEdges(myid,oldproblematicedges\problematicedges);
+     IO`printf("Requests: %s\n", [requests]);
+     network.AddRequests (requests);
+     let noproblems = network.GetNotProblematic()
+     in
+       for all eid in set noproblems
+       do
+         for all acteid in set dom actctrl
+         do
+           if let pairs = actctrl(acteid) in exists p in set pairs & p.#1 =  eid
+           then (deltcm := let p in set actctrl(acteid) be st p.#1 =  eid in p.#2;
+                 actctrl := {acteid} <-: actctrl;
+                 trigger(acteid) := cases deltcm:
+                                      mk_Diversion(-) -> {mk_Diversion(nil)},
+                                      mk_HardShoulder(true) -> {mk_HardShoulder(false)},
+                                      others -> undefined -- not yet tested
+                                    end
+                )
+   )
+  );
+
+public MakeOffers: () ==> ()
+MakeOffers() ==
+  (for all eid in set myedges do
+    let requestedservice = network.GetRequests(eid) in 
+     if eid in set dom control and requestedservice <> {} and
+        (eid in set dom actctrl => actctrl(eid) <> {}) -- Don't make an offer if it is in conflict with what is already there
+     then -- here an arbitrary choice is made in case multiple requests are made for an edge. 
+          -- In reality this should be improved in the future
+          let requestor in set {ser.originator | ser in set requestedservice} in
+          let severity in set {ser.severity | ser in set requestedservice}  in  
+     let tcm = RequestedServices2PossibleTCMs(requestor, eid, {e.service | e in set requestedservice}) 
+          in      
+          let cost = Utility(network.GetMaxSpeed(eid),trafsit(eid), prios(eid))-severity in
+             if tcm <> {}
+             then ( network.MakeOffer (eid, cost);
+                    negos := negos + 1;
+                    IO`printf("Offers made by %s: %s with cost %s\n", [myid, negos, cost])
+                  );
+  );
+  
+public EvaluateOffers: () ==> ()
+EvaluateOffers () ==
+    (for all eid in set myedges do
+    let offers = network.GetOffers(eid) 
+    in
+      for all provider in set dom offers do
+        let reqs = offers(provider)
+        in
+          network.AcceptOffers (provider, {if request.cost < ACCEPTABLECOSTS
+                                           then mu(request,accepted |-> true)
+                                           else request
+                                          | request in set reqs})
+        );
+  
+public FinaliseOffers: () ==> Control
+FinaliseOffers() ==
+  (for all eid in set myedges do
+    let offers = network.GetAcceptedOffers(eid),
+        nonproblem = network.GetNotProblematic() in 
+     if eid in set dom control and (offers <> {} or nonproblem <> {}) and
+        true -- To be extended for cases where the requested service is in conflict with what is already there
+     then if nonproblem <> {}
+          then for all non in set nonproblem 
+               do
+                 let tcm = if eid in set dom actctrl 
+                           then {p.#2 | p in set actctrl(eid) & p.#1 = non}
+                           else {},
+                     canceltcm = {cases t:
+                                    mk_HardShoulder(-)   -> mk_HardShoulder(false),
+                                    mk_MaxSpeed(-)       -> mk_MaxSpeed(nil),
+                                    mk_LaneClosure(-)    -> mk_LaneClosure(0),
+                                    mk_Diversion(-)      -> mk_Diversion(nil),
+                                    mk_TrafficLight(-,-) -> mk_TrafficLight(true, NORMALGREENTIME),
+                                    mk_RampMeter(-)      -> mk_RampMeter(NORMALREDTIME)
+                                  end
+                                 | t in set tcm}
+               in 
+                 trigger(eid) := canceltcm union
+                                 if eid in set dom trigger
+                                 then trigger(eid)
+                                 else {}
+          else let requestor in set { ser.originator | ser in set offers}  in  
+               let tcm = RequestedServices2PossibleTCMs(requestor, eid, {e.service | e in set offers}) 
+               in 
+                (trigger(eid) := tcm union
+                                if eid in set dom trigger
+                                then trigger(eid)
+                                else {};
+          cases trigger(eid): -- this only works if there is exactly one tcm in the trigger for an edge
+             {mk_HardShoulder(false)},
+             {mk_MaxSpeed(nil)}, 
+             {mk_LaneClosure(0)},
+             {mk_TrafficLight(true, (NORMALGREENTIME))},
+             {mk_Diversion(nil)},
+             {mk_RampMeter((NORMALREDTIME))} -> actctrl := {eid} <-: actctrl,
+             others -> let tcmpairs = {mk_(requestor,t) | t in set tcm}
+                       in
+                         actctrl := actctrl ++ {eid |-> tcmpairs union 
+                                               if eid in set dom actctrl
+                                               then actctrl(eid)
+                                               else {}}
+             end);
+          acceptedoffers := acceptedoffers + 1;
+          IO`printf("Accepted offers by %s: %s\n", [myid, acceptedoffers]);
+          IO`printf("Final set of triggers generated by %s: %s\n", [myid, trigger]);
+  return trigger
+  );
+
+-- This operation needs to determine which traffic control measures can be applied
+-- in response to a request for help, expressed in terms of a "service" to be
+-- provided. Multiple service can be requested, and in turn multiple control 
+-- measures can be suggested. So it can be quite complicated, e.g. in cases where
+-- requested services are contradictory (e.g. IncreaseCapacity, DecreaseCapacity.
+-- The operation is not so advanced yet, it only deals with one arbitrary control
+-- measure that can provide the service. Contradictory services are not yet dealt
+-- with.
+pure RequestedServices2PossibleTCMs: Network`EdgeId * Network`EdgeId * set of ServiceId ==> set of TCM
+RequestedServices2PossibleTCMs (rid, eid, services) ==
+   cases services:
+      {<IncreaseInput>}  -> if exists tcm in set control(eid) & is_RampMeter(tcm) 
+                            then return {mk_RampMeter(let redtime = GetCurrentRedTime(eid) in
+                                                      if redtime > STEPREDTIME 
+                                                      then redtime - STEPREDTIME 
+                                                      else NORMALREDTIME)} 
+                            else return {},
+      {<DecreaseOutput>} -> if exists tcm in set control(eid) & is_Diversion(tcm) 
+                            then return SetDiversion(rid) -- Diversion needs to be set properly. For this the eid of the requestor for help needs to be included in the game.
+                            else return {},
+      {<IncreaseInput>, 
+       <DecreaseOutput>} -> return {}, -- not sophisticated enough.
+      others -> return {}
+   end;
+   
+-- This operation returns the current red time of a RampMeter at the beginning
+-- of an edge. Obviously it still needs to be done properly.
+pure GetCurrentRedTime: Network`EdgeId ==> nat
+GetCurrentRedTime (eid) ==
+  if eid in set dom actctrl and exists tcm in set actctrl(eid) & is_RampMeter(tcm.#2)
+  then let tcm in set actctrl(eid) be st is_RampMeter(tcm.#2) in return tcm.#2.redtime
+  else return STANDARDREDTIME;
+  
+functions
+
+-- The Utility function needs fine tuning
+Utility: nat1 * Environment`EdgeSit * Priority +> real
+Utility (maxspeed, ts, prio) ==
+   let mk_(-,v,-,-,-) = ts
+   in
+     (maxspeed - v)/ prio
+pre maxspeed >= ts.#2 and prio <> 0;
+   
+TCM2Service: TCM * TCM +> ServiceId
+TCM2Service (tcm_old, tcm_new) ==
+   cases true:
+     (is_MaxSpeed(tcm_old))     -> MaxSpeed2Service(tcm_new),
+     (is_Diversion(tcm_old))    -> Diversion2Service(tcm_new),
+     (is_TrafficLight(tcm_old))	-> TrafficLight2Service(tcm_old, tcm_new),
+     (is_RampMeter (tcm_old))   -> RampMeter2Service(tcm_old, tcm_new),
+     (is_HardShoulder(tcm_old)) -> HardShoulder2Service(tcm_new),
+     (is_LaneClosure(tcm_old))  -> LaneClosure2Service(tcm_old, tcm_new)
+   end;
+
+MaxSpeed2Service: MaxSpeed +> ServiceId
+MaxSpeed2Service(tcm_new) ==
+  if tcm_new.speed = nil 
+  then <DecreaseCapacity> 
+  else <IncreaseCapacity>;
+  
+Diversion2Service: Diversion +> ServiceId
+Diversion2Service(tcm_new) ==
+  if tcm_new.route <> nil 
+  then <DecreaseOutput> 
+  else <IncreaseInput>;
+
+TrafficLight2Service: TrafficLight * TrafficLight +> ServiceId
+TrafficLight2Service(tl_old, tl_new) ==
+  if tl_new.greentime > tl_old.greentime 
+  then <IncreaseOutput>
+  else <DecreaseOutput>;
+  
+RampMeter2Service: RampMeter * RampMeter +> ServiceId
+RampMeter2Service(rm_old, rm_new) ==
+  if rm_new.redtime > rm_old.redtime 
+  then <DecreaseInput> 
+  else <IncreaseInput>;
+ 
+HardShoulder2Service: HardShoulder +> ServiceId
+HardShoulder2Service(hardshoulder) == 
+  if hardshoulder.open 
+  then <IncreaseCapacity> 
+  else <DecreaseCapacity>;
+  
+LaneClosure2Service: LaneClosure * LaneClosure +> ServiceId
+LaneClosure2Service(lc_old, lc_new) == 
+  if lc_new.closed < lc_old.closed
+  then <IncreaseCapacity> 
+  else <DecreaseCapacity>;
+
+TMSInv: set of Network`EdgeId * set of Network`EdgeId +> bool
+TMSInv(e_s,i_s) == 
+ e_s inter i_s = {};
+ 
+public ConvertTCM: seq of char +> TCM
+ConvertTCM(string) ==
+  cases string:
+    "MaxSpeed" -> mk_MaxSpeed(nil),
+    "Diversion" -> mk_Diversion(""),
+    "TrafficLight" -> mk_TrafficLight(true, STANDARDGREENTIME),
+    "RampMeter" -> mk_RampMeter(NORMALREDTIME),
+    "HardShoulder" -> mk_HardShoulder(CLOSED),
+    "LaneClosure" -> mk_LaneClosure(0)
+  end;
+  
+public ConvertBridge: seq of char +> Object
+ConvertBridge(string) ==
+  cases string:
+    "Bridge" -> mk_Bridge(<closed>)
+  end;
+  
+AddTrig: set of TCM * set of TCM +> set of TCM
+AddTrig(s1,s2) ==
+  if s2 = {}
+  then s1 
+  else let tcm in set s2 
+       in
+         (if forall t in set s1 & DifferentTypes(t,tcm)
+          then {tcm} 
+          else  {}) union AddTrig(s1,s2\{tcm})
+measure Card;
+
+Card: set of TCM * set of TCM +> nat
+Card(-,s) == card s;
+
+DifferentTypes: TCM * TCM +> bool
+DifferentTypes(t,s) ==
+  not ((is_MaxSpeed(t) and is_MaxSpeed(s)) or
+       (is_Diversion(t) and is_Diversion(s)) or
+       (is_TrafficLight(t) and is_TrafficLight(s)) or
+       (is_RampMeter(t) and is_RampMeter(s)) or
+       (is_HardShoulder(t) and is_HardShoulder(s)) or
+       (is_LaneClosure(t) and is_LaneClosure(s)));
+ 
+end TMS

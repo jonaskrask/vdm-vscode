@@ -1,0 +1,137 @@
+/*
+  A model of an Air Traffic Flow Management (ATFM) departure Traffic Management Initiative
+  (TMI) with the constraints:
+  - a set of flights wish to depart an airport;
+  - each flight may only take off from certain runways;
+  - each flight has a preferred take off time;
+  - each flight has an acceptable take off window;
+  - only certain runways are available;
+  - runways have a maximum rate at which departures can take place;
+  - the TMI runs for a specific time interval.
+
+  Within these constraints, the goal is to allocate a take off time and runway to flights
+  in an optimal manner.
+
+  This module depends on modules Set, Seq and ISO8601 contained in the ISO8601 example located at
+
+    http://overturetool.org/download/examples/VDMSL/
+*/
+module DepartureTMI
+imports from ISO8601 all,
+        from Seq all,
+        from Set all
+exports types AirportDesig
+              FlightId
+              RunwayDesig
+              struct FlightInfo
+              struct RunwayRates
+              Rate
+              struct TMIConfig
+              struct Allocation
+              DepartureTMI
+        functions departureTMI: TMIConfig +> DepartureTMI * set of FlightId
+
+definitions
+
+types
+
+  -- An airport designator.
+  AirportDesig = token;
+
+  -- A flight identifier.
+  FlightId = token;
+
+  -- A runway designator.
+  RunwayDesig = token;
+
+  -- Information on when a flight can take off and what runways it can use.
+  FlightInfo :: canUse   : set1 of RunwayDesig -- The runways the flight can use
+                preferred: ISO8601`DTG         -- The preferred take off time
+                window   : ISO8601`Interval    -- The acceptable take off window
+  inv flight == -- The preferred time falls in the take off window
+                ISO8601`inInterval(flight.preferred, flight.window);
+
+  -- The rate for each available runway.
+  -- The domain of the map is the set of available runways.
+  RunwayRates = map RunwayDesig to Rate
+  inv rr == -- At least one runway is available.
+            dom rr <> {};
+
+  -- The minimum duration between consecutive departures.
+  Rate = ISO8601`Duration;
+
+  -- A TMI configuration for departures at an airport.
+  TMIConfig :: airport: AirportDesig                -- The airport location designator
+               period : ISO8601`Interval            -- The period over which the TMI runs
+               flight :-map FlightId to FlightInfo  -- The flights that wish to depart
+               rates  :-RunwayRates                 -- The runway rates
+  inv tmiCfg == -- Every flight window overlaps the TMI period
+                (forall f in set rng tmiCfg.flight & ISO8601`overlap(f.window, tmiCfg.period)) and
+                -- Every flight can use at least one of the available runways
+                (forall f in set rng tmiCfg.flight & f.canUse inter dom tmiCfg.rates <> {});
+
+  -- An allocated runway and take off time.
+  Allocation :: rwy : RunwayDesig   -- The allocated runway
+                ttot: ISO8601`DTG;  -- The target take off time
+
+  -- A departure TMI is a mapping from flights to their allocated runways and departure times.
+  DepartureTMI = inmap FlightId to Allocation;
+
+functions
+
+  -- Run the TMI: determine a runway and take off time for each flight.
+  -- Highlight those flights that could not be accommodated.
+  departureTMI(config:TMIConfig) res:DepartureTMI * set of FlightId
+  post -- The result is a solution.
+       satisfies(config, res.#1) and
+       -- Of all solutions, the result is one with the least cost.
+       (forall tmi:DepartureTMI
+             & satisfies(config, tmi) => cost(config, res.#1) <= cost(config, tmi)) and
+       -- Those flights that could not be accommodated in the TMI are returned.
+       res.#2 = dom config.flight \ dom res.#1;
+
+  -- Does a TMI satisfy the constraints with respect to a configuration?
+  satisfies: TMIConfig * DepartureTMI +> bool
+  satisfies(config,tmi) ==
+    -- Only candidate flights are allocated.
+    dom tmi subset dom config.flight and
+    -- The flight can use the allocated runway.
+    (forall f in set dom tmi & tmi(f).rwy in set config.flight(f).canUse) and
+    -- An allocated runway is in the set of available runways.
+    (forall f in set dom tmi & tmi(f).rwy in set dom config.rates) and
+    -- The allocated take off time falls within the acceptable take off window.
+    (forall f in set dom tmi & ISO8601`inInterval(tmi(f).ttot, config.flight(f).window)) and
+    -- The allocated take off time falls within the period of the TMI.
+    (forall f in set dom tmi & ISO8601`inInterval(tmi(f).ttot, config.period)) and
+    -- Two flights allocated the same runway depart at least the required duration apart.
+    (forall f,g in set dom tmi
+          & f <> g and tmi(f).rwy = tmi(g).rwy
+            => ISO8601`durGeq(ISO8601`diff(tmi(f).ttot, tmi(g).ttot), config.rates(tmi(f).rwy)));
+
+  -- The cost of a TMI as a function of the deviations of the individual flights.
+  -- The ideal solution is where every flight is allocated its preferred time.
+  cost: TMIConfig * DepartureTMI -> nat
+  cost(config,tmi) == ISO8601`durToSeconds(ISO8601`sumDuration(deviations(config, tmi)));
+
+  -- The deviation of each flight expressed as a duration of time.
+  -- Flights that could not be accommodated are also assigned a deviation.
+  deviations: TMIConfig * DepartureTMI -> seq of ISO8601`Duration
+  deviations(config,tmi) ==
+    let allFlights = Set`toSeq[FlightId](dom config.flight)
+    in [ if f in set dom tmi
+         then allocatedDeviation(config.flight(f), tmi(f))
+         else omittedDeviation(config.period, config.flight(f).window)
+       | f in seq allFlights
+       ];
+
+  -- The deviation of a flight from an allocated time.
+  allocatedDeviation: FlightInfo * Allocation +> ISO8601`Duration
+  allocatedDeviation(flight,alloc) == ISO8601`diff(flight.preferred, alloc.ttot);
+
+  -- The deviation of a flight that is omitted from a TMI.
+  omittedDeviation: ISO8601`Interval * ISO8601`Interval +> ISO8601`Duration
+  omittedDeviation(period, flightWindow) ==
+    let dur = ISO8601`durFromInterval(flightWindow)
+    in if ISO8601`within(flightWindow, period) then dur else ISO8601`durDivide(dur, 2);
+
+end DepartureTMI

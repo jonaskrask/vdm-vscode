@@ -1,0 +1,9 @@
+class EdgeStats
+
+	instance variables
+		public avgSpeed      : nat1 := 1; -- speed of last N cars
+		public carCount      : nat  := 0; -- cars / edge
+		public carDensity    : nat  := 0; -- cars / distance
+		public carThroughput : nat  := 0; -- cars / period
+
+end EdgeStats

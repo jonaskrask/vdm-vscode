@@ -1,0 +1,73 @@
+class SimulatorEnvironment is subclass of Environment
+
+instance variables 
+
+simtime : [nat];
+time : nat;
+
+operations 
+
+public SimulatorEnvironment: Network * map World`TMSId to TMS * [nat] ==> SimulatorEnvironment 
+SimulatorEnvironment(net, tms, t) == (
+	let - = Environment(net, tms) in skip;
+	simtime := t;
+	time := 0;
+);
+
+public Run: bool * seq of char * seq1 of char ==> ()
+Run(colab,network_file,tms_file) == (
+	dcl path: seq of char := tempo_vdm_SimulatorIO`initialize(network_file,tms_file);
+	tempo_vdm_SimulatorIO`fastForwardSimulator(20 * 60);
+	while not isFinished() do (
+		dcl trafsit: TrafficSituation;
+		dcl control: TMS`Control := {|->};
+		tempo_vdm_SimulatorIO`runSimulator(10);
+		trafsit := UpdateSit();
+		for all id in set dom tms_m do tms_m(id).Step(trafsit);
+	  if colab 
+	  then for all id in set dom tms_m do tms_m(id).MakeOffers();
+		for all id in set dom tms_m do tms_m(id).EvaluateOffers();
+	  for all id in set dom tms_m do 
+	    let c = tms_m(id).FinaliseOffers() 
+		  in 
+		    (control := control ++ c;
+		     network.ResetNotproblematic(id));
+		IO`printf("%s\nEdge situation: %s\nControl measures: %s\n", [time, trafsit, control]);
+		for all e in set dom control do
+			for all m in set control(e) do
+				if is_TMS`HardShoulder(m) then
+					tempo_vdm_SimulatorIO`applyHardShoulder(e, m.open)
+				elseif is_TMS`MaxSpeed(m) then
+					if m.speed <> nil
+					then tempo_vdm_SimulatorIO`applyMaxSpeed(e, m.speed)
+					else tempo_vdm_SimulatorIO`applyMaxSpeed(e, 0)
+				elseif is_TMS`TrafficLight(m) then
+					tempo_vdm_SimulatorIO`applyTrafficLight(e, m.greentime)
+				elseif is_TMS`RampMeter(m) then
+				  tempo_vdm_SimulatorIO`applyRampMeter(e, m.redtime)
+				elseif is_TMS`Diversion(m) then
+					if m.route <> nil
+					then tempo_vdm_SimulatorIO`applyDiversion(e, m.route)
+					else tempo_vdm_SimulatorIO`applyDiversion(e, "")
+				elseif is_TMS`LaneClosure(m) then
+				  tempo_vdm_SimulatorIO`applyLaneClosure(e, m.closed);
+		network.ResetOffers();
+		time := time+1;
+	);
+);
+
+private UpdateSit: () ==> TrafficSituation
+UpdateSit() == (
+	dcl sit: EdgeSit;
+	dcl trafsit: TrafficSituation := {|->};
+	for all e in set network.GetEdgeIds() do (
+		sit := tempo_vdm_SimulatorIO`getSituation(e);
+		trafsit(e) := sit;
+	);
+	return trafsit
+);
+
+protected isFinished: () ==> bool
+isFinished() == return if simtime <> nil then time >= simtime else false;
+
+end SimulatorEnvironment

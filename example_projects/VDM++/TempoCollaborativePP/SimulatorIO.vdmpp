@@ -1,0 +1,55 @@
+class tempo_vdm_SimulatorIO
+
+operations
+
+	public static
+		initialize : (seq of char) * (seq of char) ==> (seq of char)
+		initialize( networkFile, tmsFile ) == 
+			is not yet specified;
+
+	public static
+		runSimulator : (nat1) ==> ()
+		runSimulator( time ) ==
+			is not yet specified;
+
+	public static
+		fastForwardSimulator : (nat1) ==> ()
+		fastForwardSimulator( time ) ==
+			is not yet specified;
+
+	public static
+		applyHardShoulder : seq of char * bool ==> ()
+		applyHardShoulder( edgeId, enable) ==
+			is not yet specified;
+			
+	public static
+		applyTrafficLight : seq of char * nat ==> ()
+		applyTrafficLight( edgeId, greenTime) ==
+			is not yet specified;
+			
+	public static
+		applyRampMeter : seq of char * nat ==> ()
+		applyRampMeter( edgeId, redTime) ==
+			is not yet specified;
+			
+	public static
+		applyDiversion : seq of char * seq of char ==> ()
+		applyDiversion( edgeId, message) ==
+			is not yet specified;
+			
+	public static
+		applyMaxSpeed : seq of char * nat ==> ()
+		applyMaxSpeed( edgeId, maxSpeed) ==
+			is not yet specified;
+
+	public static
+		applyLaneClosure : seq of char * nat ==> ()
+		applyLaneClosure( edgeId, closed) ==
+			is not yet specified;
+
+	public static
+		getSituation : seq of char ==> Environment`EdgeSit
+		getSituation( edge_id ) ==
+			is not yet specified;
+
+end tempo_vdm_SimulatorIO

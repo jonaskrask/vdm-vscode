@@ -1,0 +1,24 @@
+class Actuator
+
+instance variables
+
+protected ID   : nat;
+protected Type : NetworkTypes`nodeType;
+protected Corr : NetworkTypes`correction;
+protected Env	: Surroundings;
+
+operations
+
+pure public GetID: () ==> nat
+GetID() ==
+  return ID;
+
+pure public GetType: () ==> NetworkTypes`nodeType
+GetType() ==
+  return Type;
+
+pure protected GetCorr: () ==> NetworkTypes`correction
+GetCorr() ==
+  return Corr;
+
+end Actuator

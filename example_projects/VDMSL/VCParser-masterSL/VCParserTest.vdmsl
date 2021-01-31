@@ -1,0 +1,213 @@
+module VCParserTest
+imports from VCParser
+    types
+        ERROR renamed ERROR;
+        PARSED renamed PARSED;
+        TREE renamed TREE;
+    functions
+        takeChar renamed takeChar;
+        takeString renamed takeString;
+        series renamed series;
+        either renamed either;
+        star renamed star;
+        plus renamed plus;
+        option renamed option;
+        trimBlanks renamed trimBlanks;
+        fail renamed fail;
+        concat renamed concat;
+        pass renamed pass;
+        label renamed label;
+        trans renamed trans;
+        transtree renamed transtree;
+        iferror renamed iferror;
+    values
+        any renamed any;
+        digit renamed digit;
+        natnum renamed natnum;
+        integer renamed integer;
+exports all
+definitions
+values
+    a = takeChar('a');
+    b = takeChar('b');
+    c = takeChar('c');
+functions
+    id : PARSED -> PARSED
+    id(parsed) == parsed;
+operations
+    test : PARSED * (PARSED->bool) ==> ()
+    test(parsed, result) == skip
+    pre result(parsed);
+
+    /* any */
+    test_any : () ==> ()
+    test_any() == (
+        test(any("a"), lambda p:PARSED & p.parsed.contents = "a");
+        test(any("1"), lambda p:PARSED & p.parsed.contents = "1");
+        test(any(""), lambda p:PARSED & is_ERROR(p.parsed)));
+
+    /* digit */
+    test_digit : () ==> ()
+    test_digit() == (
+        test(digit("a"), lambda p:PARSED & is_ERROR(p.parsed));
+        test(digit("1"), lambda p:PARSED & p.parsed.contents = "1");
+        test(digit(""), lambda p:PARSED & is_ERROR(p.parsed)));
+
+    /* natnum */
+    test_natnum : () ==> ()
+    test_natnum() == (
+        test(natnum("0"), lambda p:PARSED & p.parsed.contents = "0");
+        test(natnum("123"), lambda p:PARSED & p.parsed.contents = "123");
+        test(natnum("123.45"), lambda p:PARSED & p.parsed.contents = "123");
+        test(natnum("-1"), lambda p:PARSED & is_ERROR(p.parsed)));
+
+    /* integer */
+    test_integer : () ==> ()
+    test_integer() == (
+        test(integer("0"), lambda p:PARSED & p.parsed.contents = "0");
+        test(integer("123"), lambda p:PARSED & p.parsed.contents = "123");
+        test(integer("-123"), lambda p:PARSED & p.parsed.contents = "-123");
+        test(integer("123.45"), lambda p:PARSED & p.parsed.contents = "123");
+        test(integer("-x"), lambda p:PARSED & is_ERROR(p.parsed)));
+
+    /* takeChar */
+    test_takeChar : () ==> ()
+    test_takeChar() == (
+        test(takeChar('a')("abc"), lambda p:PARSED & p.parsed.contents = "a");
+        test(takeChar('a')("bca"), lambda p:PARSED & is_ERROR(p.parsed)));
+
+    /* takeString */
+    test_takeString : () ==> ()
+    test_takeString() == (
+        test(takeString("abc")("abcd"), lambda p:PARSED & p.parsed.contents = "abc");
+        test(takeString("abc")("abx"), lambda p:PARSED & is_ERROR(p.parsed)));
+
+    /* star */
+    test_star : () ==> ()
+    test_star() == (
+        test(star(a)("aabc"), lambda p:PARSED & len p.parsed.contents = 2);
+        test(star(a)("abc"), lambda p:PARSED & len p.parsed.contents = 1);
+        test(star(a)("bc"), lambda p:PARSED & len p.parsed.contents = 0));
+
+    /* plus */
+    test_plus : () ==> ()
+    test_plus() == (
+        test(plus(a)("aabc"), lambda p:PARSED & len p.parsed.contents = 2);
+        test(plus(a)("abc"), lambda p:PARSED & len p.parsed.contents = 1);
+        test(plus(a)("bc"), lambda p:PARSED & is_ERROR(p.parsed)));
+
+    /* option */
+    test_option : () ==> ()
+    test_option() == (
+        test(option(a)("aabc"), lambda p:PARSED & p.parsed.contents = "a");
+        test(option(a)("aabc"), lambda p:PARSED & p.remaining = "abc");
+        test(option(a)("abc"), lambda p:PARSED & p.parsed.contents = "a");
+        test(option(a)("abc"), lambda p:PARSED & p.remaining = "bc");
+        test(option(a)("bc"), lambda p:PARSED & p.parsed.contents = "");
+        test(option(a)("bc"), lambda p:PARSED & p.remaining = "bc");
+    );
+
+    /* concat */
+    test_concat : () ==> ()
+    test_concat() == (
+        test(concat(plus(a))("aaabc"), lambda p:PARSED & p.parsed.contents = "aaa");
+        test(concat(plus(a))("bc"), lambda p:PARSED & is_ERROR(p.parsed)));
+
+    /* trimBlanks */
+    test_trimBlanks : () ==> ()
+    test_trimBlanks() == (
+        test(trimBlanks(a)(" a bc"), lambda p:PARSED & p.parsed.contents = "a");
+        test(trimBlanks(a)(" a bc"), lambda p:PARSED & p.remaining = "bc");
+        test(trimBlanks(a)("a bc"), lambda p:PARSED & p.parsed.contents = "a");
+        test(trimBlanks(a)("a bc"), lambda p:PARSED & p.remaining = "bc");
+        test(trimBlanks(a)(" abc"), lambda p:PARSED & p.parsed.contents = "a");
+        test(trimBlanks(a)(" abc"), lambda p:PARSED & p.remaining = "bc");
+        test(trimBlanks(a)("bc"), lambda p:PARSED & is_ERROR(p.parsed)));
+
+    /* fail */
+    test_fail : () ==> ()
+    test_fail() == (
+        test(fail(a)("abc"), lambda p:PARSED & is_ERROR(p.parsed));
+        test(fail(a)("bc"), lambda p:PARSED & p.parsed.contents = "");
+        test(fail(a)("bc"), lambda p:PARSED & p.remaining = "bc"));
+
+    /* pass */
+    test_pass : () ==> ()
+    test_pass() == (
+        test(pass(a)("abc"), lambda p:PARSED & p.parsed.contents = "");
+        test(pass(a)("abc"), lambda p:PARSED & p.remaining = "bc");
+        test(pass(a)("bc"), lambda p:PARSED & is_ERROR(p.parsed)));
+
+    /* label */
+    test_label : () ==> ()
+    test_label() == (
+        test(label("A", a)("abc"), lambda p:PARSED & p.parsed.nodelabel = "A");
+        test(label("A", a)("abc"), lambda p:PARSED & p.parsed.contents = "a");
+        test(label("A", a)("abc"), lambda p:PARSED & p.remaining = "bc");
+        test(label("A", a)("bc"), lambda p:PARSED & is_ERROR(p.parsed)));
+        
+    /* trans */
+    test_trans : () ==> ()
+    test_trans() == (
+        let parsed = mk_PARSED(mk_TREE(nil, []), []) in (
+            test(trans(lambda -:PARSED&parsed, a)("abc"), lambda p:PARSED & p = parsed);
+            test(trans(lambda -:PARSED&parsed, a)("bc"), lambda p:PARSED & p = parsed)));
+
+    /* transtree */
+    test_transtree : () ==> ()
+    test_transtree() == (
+        let tree = mk_TREE(nil, []) in (
+            test(transtree(lambda -:TREE&tree, a)("abc"), lambda p:PARSED & p.parsed = tree);
+            test(transtree(lambda -:TREE&tree, a)("bc"), lambda p:PARSED & is_ERROR(p.parsed))));
+
+    /* iferror */
+    test_iferror : () ==> ()
+    test_iferror() == (
+        test(iferror("A", a)("abc"), lambda p:PARSED & p.parsed.contents = "a");
+        test(iferror("A", a)("bc"), lambda p:PARSED & is_ERROR(p.parsed));
+        test(iferror("A", a)("bc"), lambda p:PARSED & p.parsed.message = "A"));
+
+    /* series */
+    test_series : () ==> ()
+    test_series() == (
+        test(series([a, b])("abc"), lambda p:PARSED & len p.parsed.contents = 2);
+        test(series([a, b])("bca"), lambda p:PARSED & is_ERROR(p.parsed)));
+
+    /* either */
+    test_either : () ==> ()
+    test_either() == (
+        test(either([a, b])("abc"), lambda p:PARSED & p.parsed.contents = "a");
+        test(either([a, b])("bca"), lambda p:PARSED & p.parsed.contents = "b");
+        test(either([a, b])("cab"), lambda p:PARSED & is_ERROR(p.parsed)));
+
+traces
+
+unit:
+    test_any();
+    test_digit();
+    test_natnum();
+    test_integer();
+    test_takeChar();
+    test_takeString();
+    test_star();
+    test_plus();
+    test_option();
+    test_concat();
+    test_trimBlanks();
+    test_fail();
+    test_pass();
+    test_trans();
+    test_transtree();
+    test_iferror();
+    test_series();
+    test_either();
+
+combinators:
+    let c1, c2 in set {star, plus, option, trimBlanks, fail, pass} in
+        id(c1(c2(a))("abc"));
+    let n1, n2 in set {series, either} in
+        id(n1([n2([a, b]), c])("abc"));
+    let c1, c2 in set {star, plus, option, trimBlanks, fail, pass} in
+        let n1 in set {series, either} in
+            id(c1(n1([c2(a), b]))("abc"));
+end VCParserTest

@@ -1,0 +1,80 @@
+/*
+   A module that specifies and defines general purpose functions over numerics.
+
+   All definitions are explicit and executable.
+*/
+module Numeric
+imports from Char all,
+        from Seq all
+exports functions min: real * real +> real
+                  max: real * real +> real
+                  formatNat: nat +> seq of Char`Digit
+                  decodeNat: seq1 of Char`Digit +> nat
+                  fromChar: Char`Digit +> nat
+                  toChar: nat +> Char`Digit
+                  zeroPad: nat * nat1 +> seq of Char`Digit
+                  add: real * real +> real
+                  mult: real * real +> real
+
+definitions
+
+functions
+
+  -- The minimum of two numerics.
+  min: real * real +> real
+  min(x,y) == if x<y then x else y;
+
+  -- The maximum of two numerics.
+  max: real * real +> real
+  max(x,y) == if x>y then x else y;
+
+  -- Format a natural number as a string of digits.
+  formatNat: nat +> seq of Char`Digit
+  formatNat(n) == if n < 10
+                  then [toChar(n)]
+                  else formatNat(n div 10) ^ [toChar(n mod 10)]
+  measure size1;
+
+  -- Create a natural number from a sequence of digit characters.
+  decodeNat: seq1 of Char`Digit +> nat
+  decodeNat(s) == cases s:
+                    [c] -> fromChar(c),
+                    u^[c] -> 10*decodeNat(u)+fromChar(c)
+                  end
+  measure size2;
+
+  -- Convert a character digit to the corresponding natural number.
+  fromChar: Char`Digit +> nat
+  fromChar(c) == Seq`indexOf[Char`Digit](c,Char`DIGITS)-1
+  post toChar(RESULT) = c;
+
+  -- Convert a numeric digit to the corresponding character.
+  toChar: nat +> Char`Digit
+  toChar(n) == Char`DIGITS(n+1)
+  pre 0 <= n and n <= 9;
+  --post fromChar(RESULT) = n
+
+  -- Format a natural number as a string with leading zeros up to a specified length.
+  zeroPad: nat * nat1 +> seq of Char`Digit
+  zeroPad(n,w) == Seq`padLeft[char](formatNat(n),'0',w);
+
+  -- The following functions wrap primitives for convenience, to allow them for example to
+  -- serve as function arguments.
+
+  -- Sum of two numbers.
+  add: real * real +> real
+  add(m,n) == m+n;
+
+  -- Product of two numbers.
+  mult: real * real +> real
+  mult(m,n) == m*n;
+
+  -- Measure functions.
+
+  size1: nat +> nat
+  size1(n) == n;
+
+  size2: seq1 of Char`Digit +> nat
+  size2(s) == len s;
+
+end Numeric

@@ -1,0 +1,87 @@
+class MetroUnit
+
+types
+    public MetroUnitId = token;
+    public MetroUnitState = <Running> | <Stopped>;
+    
+instance variables
+    private id: MetroUnitId;
+    private state: MetroUnitState := <Stopped>;
+    private line: [InterlockingSystem`MetroLine] := nil;
+    private trackIndex: nat1 := 1;
+    
+    -- The metro unit must be on the tracks.
+    inv InterlockingSystem`InRangeOfTracks(line, trackIndex);
+    
+    private recentStates: seq of MetroUnit`MetroUnitState := [ ];
+    
+    -- Save states of at most ten time steps.
+    inv len recentStates <= 10;
+    
+operations
+    public MetroUnit: MetroUnitId ==> MetroUnit
+           MetroUnit(newId) ==
+           (
+                id := newId;
+           );
+    
+    pure public GetId: () ==> MetroUnitId
+           GetId() == return id;
+    
+    pure
+    public GetLine: () ==> [InterlockingSystem`MetroLine]
+           GetLine() == return line;
+    
+    pure
+    public GetLocation: () ==> [InterlockingSystem`Track]
+           GetLocation() == return InterlockingSystem`TrackAt(line, trackIndex);
+    
+    pure
+    public GetNextLocation: () ==> [InterlockingSystem`Track]
+           GetNextLocation() == return InterlockingSystem`TrackAt(line, InterlockingSystem`NextTrackIndex(line, trackIndex));
+    
+    pure
+    public GetState: () ==> MetroUnitState
+           GetState() == return state;
+    
+    pure
+    public IsStuck: () ==> bool
+           IsStuck() ==
+                return recentStates <> [] and
+                       not exists s in seq recentStates & s = <Running>;
+    
+    public Relocate: [InterlockingSystem`MetroLine] * nat1 ==> ()
+           Relocate(newLine, startingTrackIndex) ==
+                atomic
+                (
+                    line := newLine;
+                    trackIndex := startingTrackIndex;
+                )
+    pre InterlockingSystem`InRangeOfTracks(newLine, startingTrackIndex);
+    
+    public Run: () ==> ()
+           Run() == state := <Running>;
+    
+    public Stop: () ==> ()
+           Stop() == state := <Stopped>;
+    
+    public Tick: () ==> ()
+           Tick() == 
+           (
+                Move();
+                UpdateRecentStates();
+           );
+           
+    private Move: () ==> ()
+            Move() ==
+                if state = <Running> then
+                    trackIndex := InterlockingSystem`NextTrackIndex(line, trackIndex);
+    
+    private UpdateRecentStates: () ==> ()
+            UpdateRecentStates() ==
+                recentStates := (if len recentStates = 10 then
+                                     tl recentStates
+                                 else recentStates) ^ [ state ]
+    post len recentStates <= 10;
+    
+end MetroUnit

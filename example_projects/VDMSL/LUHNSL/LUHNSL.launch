@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<launchConfiguration type="org.overture.ide.vdmsl.debug.launchConfigurationType">
+<intAttribute key="vdm_debug_session_id" value="1"/>
+<booleanAttribute key="vdm_launch_config_create_coverage" value="true"/>
+<booleanAttribute key="vdm_launch_config_enable_logging" value="false"/>
+<stringAttribute key="vdm_launch_config_memory_option" value=""/>
+<stringAttribute key="vdm_launch_config_remote_control_class" value=""/>
+<booleanAttribute key="vdm_launch_config_remote_debug" value="false"/>
+<stringAttribute key="vdm_launch_config_project" value="LUHNSL"/>
+<stringAttribute key="vdm_launch_config_expression" value="LUHN`luhn([1,2,3,4,5])"/>
+<booleanAttribute key="vdm_launch_config_static_method" value="true"/>
+<stringAttribute key="vdm_launch_config_default" value="LUHN"/>
+<stringAttribute key="vdm_launch_config_method" value="luhn([1,2,3,4,5])"/>
+<stringAttribute key="vdm_launch_config_module" value="LUHN"/>
+</launchConfiguration>

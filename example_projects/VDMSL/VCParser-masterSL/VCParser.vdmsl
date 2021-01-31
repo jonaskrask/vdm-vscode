@@ -1,0 +1,386 @@
+module VCParser
+/***
+VCParser
+Author: Tomohiro Oda and Paul Chisholm
+Version: 0.01
+License: the MIT License
+
+Copyright (c) 2013 Tomohiro Oda, Paul Chisholm
+                   and Software Research Associates, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+***/
+exports all
+definitions
+types
+     -- The source to be parsed - a sequence of characters.
+     SOURCE = seq of char;
+     
+     -- Error meesage resulting from failed parsing.
+     ERROR :: message : seq of char;
+
+     -- Parse tree label (optional).
+     LABEL = [seq of char];
+     
+     -- Parse tree: a label and a sequence of subtree/character items.
+     TREE :: label : LABEL
+             contents : seq of (TREE | char);
+     
+     -- A parse result: the parse tree or error message, plus input text that was not processed.
+     PARSED :: parsed : TREE | ERROR
+               remaining : SOURCE;
+
+     -- The type of parsing functions.
+     PARSER = SOURCE -> PARSED;
+
+values
+    /***
+    messages
+    ***/
+     UNEXPECTED_EOF = "Unexpected EOF";
+     UNEXPECTED = "Unexpected ";
+     EXPECTED = "Expected ";
+
+    /***
+    parsers
+    ***/
+
+     -- Recognise any character.
+     any =
+        lambda source : SOURCE &
+            cases source:
+                [] -> mk_PARSED(mk_ERROR(UNEXPECTED_EOF), source),
+                others -> mk_PARSED(mk_TREE(nil, [hd source]), tl source)
+                end;
+
+     -- Recognise a single white space character.
+     whiteChar =
+        label(
+            "whiteChar",
+            either([takeChar(" \t\r\n"(index)) | index in set {1, ..., 4}]));
+
+     -- Recognise a (possibly empty) sequence of white space characters.
+     whiteString = star(whiteChar);
+
+     -- Recognise a non-empty sequence of white space characters.
+     whiteString1 = plus(whiteChar);
+
+     -- Recognise and discard a (possibly empty) sequence of white space characters.
+     passWhiteString = pass(whiteString);
+
+     -- Recognise and discard a non-empty sequence of white space characters.
+     passWhiteString1 = pass(whiteString1);
+
+     -- Recognise a decimal digit.
+     digit =
+        label(
+            "digit",
+            either([takeChar("0123456789"(index)) | index in set {1, ..., 10}]));
+
+     -- Recognise a lower case roman alphabetic character.
+     lowerAlphabet =
+        label(
+            "lowerAlphabet",
+            either(
+                [takeChar("abcdefghijklmnopqrstuvwxyz"(index))
+                    | index in set {1, ..., 26}]));
+
+     -- Recognise an upper case roman alphabetic character.
+     upperAlphabet =
+        label(
+            "upperAlphabet",
+            either(
+                [takeChar("ABCDEFGHIJKLMNOPQRSTUVWXYZ"(index))
+                    | index in set {1, ..., 26}]));
+
+     -- Recognise a roman alphabetic character.
+     alphabet =
+        label("alphabet", either([lowerAlphabet, upperAlphabet]));
+
+     -- Recognise a natural number (leading zeroes not allowed).
+     natnum =
+        label(
+            "nat",
+            either(
+                [takeChar('0'),
+                concat(series([fail(takeChar('0')), concat(plus(digit))]))]));
+
+     -- Recognise an integer.
+     integer =
+        label("int", concat(series([option(takeChar('-')), natnum])));
+
+functions
+    /***
+    parser generators
+    ***/
+
+    -- Recognise a specified character.
+    takeChar : char -> PARSER
+    takeChar(c) ==
+        lambda source : SOURCE &
+            cases source:
+                [] -> mk_PARSED(mk_ERROR(UNEXPECTED_EOF), source),
+                others ->
+                    if
+                        hd source = c
+                    then
+                        mk_PARSED(mk_TREE(nil, [c]), tl source)
+                    else
+                        mk_PARSED(mk_ERROR(EXPECTED ^ "'" ^ [c] ^ "'"), source)
+                end;
+
+    -- Recognise and discard a specified character.
+    passChar : char -> PARSER
+    passChar(c) == pass(takeChar(c));
+
+    -- Recognise one of a sequence of specified characters.
+    takeOneOfChar : seq1 of char -> PARSER
+    takeOneOfChar(chars) ==
+        either([ takeChar(chars(i)) | i in set inds chars]);
+
+    -- Recognise a specified string.
+    takeString : seq1 of char -> PARSER
+    takeString(string) ==
+        concat(
+            series([takeChar(string(index)) | index in set inds string]));
+
+    -- Recognise and discard a specified string.
+    passString : seq of char -> PARSER
+    passString(s) == pass(takeString(s));
+
+    -- Recognise one of a sequence of specified strings.
+    takeOneOfString : seq1 of seq1 of char -> PARSER
+    takeOneOfString(strings) ==
+        either([ takeString(strings(i)) | i in set inds strings]);
+
+    /***
+    parser combinators
+    ***/
+
+    -- Recognise, in order, a sequence of parsers.
+    --   VCParser:  series([nonterm1,nonterm2,...,nontermn])
+    --   ISO 14977: nonterm1 , nonterm2 , ... , nontermn
+    series : seq1 of PARSER -> PARSER
+    series(parsers) ==
+        lambda source : SOURCE &
+            (let mk_PARSED(tree1, source1) = (hd parsers)(source)
+                in
+                    cases mk_(tree1, tl parsers):
+                        mk_(mk_ERROR(-), -) -> mk_PARSED(tree1, source1),
+                        mk_(-, []) -> mk_PARSED(mk_TREE(nil, [tree1]), source1),
+                        mk_(-, rest) ->
+                            let mk_PARSED(tree2, source2) = series(rest)(source1)
+                            in
+                                cases tree2:
+                                    mk_TREE(-, trees2) ->
+                                        mk_PARSED(mk_TREE(nil, [tree1] ^ trees2), source2),
+                                    mk_ERROR(-) -> mk_PARSED(tree2, source2)
+                                    end
+                        end);
+
+    -- Recognise one of a sequence of parsers.
+    --   VCParser:  either([nonterm1,nonterm2,...,nontermn])
+    --   ISO 14977: nonterm1 | nonterm2 | ... | nontermn
+    either : seq1 of PARSER -> PARSER
+    either(parsers) ==
+        lambda source : SOURCE &
+            (let mk_PARSED(tree1, source1) = (hd parsers)(source)
+                in
+                    cases mk_(tree1, tl parsers):
+                        mk_(mk_ERROR(-), []) -> mk_PARSED(tree1, source1),
+                        mk_(mk_ERROR(-), -) -> either(tl parsers)(source),
+                        mk_(-, -) -> mk_PARSED(tree1, source1)
+                        end);
+
+    -- Recognise a parser zero or more times.
+    --   VCParser:  star(nonterm)
+    --   ISO 14977: { nonterm }
+    star : PARSER -> PARSER
+    star(parser) ==
+        lambda source : SOURCE &
+            cases parser(source):
+                mk_PARSED(mk_ERROR(-), -) -> mk_PARSED(mk_TREE(nil, []), source),
+                mk_PARSED(tree, rest) ->
+                    if
+                        rest = source
+                    then
+                        mk_PARSED(tree, rest)
+                    else
+                        (let mk_PARSED(mk_TREE(-, trees), source2) = star(parser)(rest)
+                            in mk_PARSED(mk_TREE(nil, [tree] ^ trees), source2))
+                end;
+
+    -- Recognise a parser one or more times.
+    --   VCParser:  plus(nonterm)
+    --   ISO 14977: nonterm , { nonterm }
+    plus : PARSER -> PARSER
+    plus(parser) ==
+        lambda source : SOURCE &
+            cases parser(source):
+                mk_PARSED(mk_ERROR(e), -) -> mk_PARSED(mk_ERROR(e), source),
+                mk_PARSED(tree, rest) ->
+                    let mk_PARSED(mk_TREE(-, trees), source2) = star(parser)(rest)
+                    in mk_PARSED(mk_TREE(nil, [tree] ^ trees), source2)
+                end;
+
+    -- Recognise a parser a specified number of times based on lower and upper bounds.
+    -- If lower bound omitted, 0 is assumed.
+    -- If upper bound is omitted, there is no limit.
+    iterate : PARSER * [nat] * [nat1] -> PARSER
+    iterate(parser, m, n) ==
+        let lower = if m = nil then 0 else m
+        in
+            series(
+                [parser | i in set {1, ..., lower}]
+                ^ (if
+                        n = nil
+                    then
+                        [star(parser)]
+                    else
+                        [option(parser) | i in set {lower + 1, ..., n}]))
+    pre m <> nil and n <> nil => m <= n;
+
+    -- Recognise a parser one or more times interleaved by a specified separator.
+    --   VCParser:  iterateWithSeparator(nonterm1,nonterm2)
+    --   ISO 14977: nonterm1 , { nonterm2 , nonterm1 }
+    iterateWithSeparator : PARSER * PARSER -> PARSER
+    iterateWithSeparator(parser, separator) ==
+        let next_item = series([pass(separator), parser])
+        in series([parser, star(next_item)]);
+
+    -- Recognise a parser an exact number of times.
+    --   VCParser:  iterateFixedTimes(nonterm,n)
+    --   ISO 14977: n * nonterm
+    iterateFixedTimes : PARSER * nat1 -> PARSER
+    iterateFixedTimes(parser, n) == iterate(parser, n, n);
+
+    -- Recognise a parser up to a specified number of times (lower bound is 0).
+    --   VCParser:  iterateAtMost(nonterm,n)
+    --   ISO 14977: n * [ nonterm ]
+    iterateAtMost : PARSER * nat1 -> PARSER
+    iterateAtMost(parser, n) == iterate(parser, nil, n);
+
+    -- Recognise a parser at least a specified number of times (no upper limit).
+    --   VCParser:  iterateAtLeast(nonterm,n)
+    --   ISO 14977: n * nonterm , { nonterm }
+    iterateAtLeast : PARSER * nat -> PARSER
+    iterateAtLeast(parser, n) == iterate(parser, n, nil);
+
+    -- Optionally recognise a parser.
+    --   VCParser:  option(nonterm)
+    --   ISO 14977: [ nonterm ]
+    option : PARSER -> PARSER
+    option(parser) ==
+        lambda source : SOURCE &
+            cases parser(source):
+                mk_PARSED(mk_ERROR(-), -) -> mk_PARSED(mk_TREE(nil, []), source),
+                success -> success
+                end;
+
+    -- Recognise a parser, skipping preceding and succeeding blanks.
+    trimBlanks : PARSER -> PARSER
+    trimBlanks(parser) ==
+        concat(series([passWhiteString, parser, passWhiteString]));
+
+    -- Fail to recognise a parser.
+    -- If the parser succeeds, an error message is returned.
+    -- If the parser fails, success is returned and no input is consumed.
+    fail : PARSER -> PARSER
+    fail(parser) ==
+        lambda source : SOURCE &
+            (let mk_PARSED(tree1, source1) = parser(source)
+                in
+                    cases tree1:
+                        mk_ERROR(-) -> mk_PARSED(mk_TREE(nil, []), source),
+                        mk_TREE(-, -) ->
+                            mk_PARSED(
+                                mk_ERROR(
+                                    UNEXPECTED
+                                    ^ [source(index) | index in set {1, ..., len source - len source1}]),
+                                source)
+                        end);
+
+    -- Recognise a parser then concatenate all the items of any subtrees and lift into the top level tree.
+    concat : PARSER -> PARSER
+    concat(parser) ==
+        (lambda p : PARSED &
+                cases p:
+                    mk_PARSED(mk_ERROR(-), -) -> p,
+                    mk_PARSED(mk_TREE(-, contents), rest) ->
+                        if contents = []
+                            then mk_PARSED(mk_TREE(nil, contents), rest)
+                        elseif is_(contents, seq of char)
+                            then mk_PARSED(mk_TREE(nil, contents), rest)
+                        else
+                            mk_PARSED(
+                                mk_TREE(
+                                    nil,
+                                    conc [let mk_TREE(-, subcontent) = contents(index) in subcontent
+                                        | index in set inds contents & is_(contents(index), TREE)]),
+                                rest)
+                    end)
+        comp parser;
+
+    -- Recognise a parser and discard the resulting parse tree.
+    pass : PARSER -> PARSER
+    pass(parser) ==
+        lambda source : SOURCE &
+            cases parser(source):
+                mk_PARSED(mk_TREE(l, -), rest) -> mk_PARSED(mk_TREE(l, []), rest),
+                err -> err
+                end;
+
+    -- Recognise a parser and assign a label to the resulting parse tree.
+    label : LABEL * PARSER -> PARSER
+    label(newLabel, parser) ==
+        (lambda parsed : PARSED &
+                cases parsed:
+                    mk_PARSED(mk_TREE(-, contents), source) ->
+                        mk_PARSED(mk_TREE(newLabel, contents), source),
+                    others -> parsed
+                    end)
+        comp parser;
+
+    -- Recognise a parser and, if successful, transform the parse result.
+    trans : (PARSED -> PARSED) * PARSER -> PARSER
+    trans(modifier, parser) == modifier comp parser;
+
+    -- Recognise a parser and, if successful, transform the parse tree.
+    transtree : (TREE -> TREE) * PARSER -> PARSER
+    transtree(modifier, parser) ==
+        trans(
+            lambda parsed : PARSED &
+                cases parsed:
+                    mk_PARSED(mk_ERROR(-), -) -> parsed,
+                    mk_PARSED(tree, rest) -> mk_PARSED(modifier(tree), rest)
+                    end,
+            parser);
+
+    -- Recognise a parser; if it fails, set the error message.
+    iferror : seq of char * PARSER -> PARSER
+    iferror(message, parser) ==
+        trans(
+            lambda parsed : PARSED &
+                cases parsed:
+                    mk_PARSED(mk_ERROR(-), rest) -> mk_PARSED(mk_ERROR(message), rest),
+                    mk_PARSED(mk_TREE(-, -), -) -> parsed
+                    end,
+            parser);
+
+end VCParser

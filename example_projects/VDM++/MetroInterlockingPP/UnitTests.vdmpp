@@ -1,0 +1,172 @@
+class UnitTests is subclass of TestCase
+
+instance variables
+    private system: InterlockingSystem := new InterlockingSystem();
+    private units: seq of MetroUnit := [ ];
+    private lines: seq of InterlockingSystem`MetroLine := [ ];
+    
+functions
+    private static Track: nat * nat * InterlockingSystem`TrackKind * nat1 -> InterlockingSystem`Track
+                   Track(x, y, kind, capacity) == mk_InterlockingSystem`Track(mk_(x, y), kind, capacity);
+    
+    private static Line: InterlockingSystem`MetroLineName * seq of InterlockingSystem`Track -> InterlockingSystem`MetroLine
+                   Line(name, tracks) == InterlockingSystem`CreateLinearLine(name, tracks);
+    
+operations
+    public setUp: () ==> ()
+           setUp() ==
+           (
+                system := new InterlockingSystem();
+                units := [ new MetroUnit(mk_token(i)) | i in set { 1, ..., 8 } ];
+                lines := [ Line("Underwater 1", [ Track(1, 1, <Underwater>, 1), Track(2, 1, <Underground>, 2), Track(3, 1, <Underground>, 2), Track(4, 1, <Underground>, 1) ])
+                         , Line("Underground 1", [ Track(1, 1, <Underground>, 1), Track(2, 1, <Underground>, 2), Track(3, 1, <Underground>, 2), Track(4, 1, <Underground>, 1) ])
+                         , Line("Overground 1", [ Track(1, 1, <Overground>, 1), Track(2, 1, <Underground>, 2), Track(3, 1, <Underground>, 2), Track(4, 1, <Underground>, 1) ])
+                         , Line("Elevated 1", [ Track(1, 1, <Elevated>, 1), Track(2, 1, <Underground>, 2), Track(3, 1, <Underground>, 2), Track(4, 1, <Underground>, 1) ])
+                         , Line("Underwater 2", [ Track(1, 2, <Underwater>, 1), Track(2, 2, <Underground>, 1) ])
+                         , Line("Underground 2", [ Track(1, 2, <Underground>, 1), Track(2, 2, <Underground>, 1) ])
+                         , Line("Overground 2", [ Track(1, 2, <Overground>, 1), Track(2, 2, <Underground>, 1) ])
+                         , Line("Elevated 2", [ Track(1, 2, <Elevated>, 1), Track(2, 2, <Underground>, 1) ]) ];
+                
+                AddLines();
+                AddUnits();
+                RelocateUnits();
+           );
+    
+    private AddLines: () ==> ()
+            AddLines() ==
+            (
+                system.AddLine(lines(1));
+                system.AddLine(lines(2));
+                system.AddLine(lines(3));
+                system.AddLine(lines(4));
+                system.AddLine(lines(5));
+                system.AddLine(lines(6));
+                system.AddLine(lines(7));
+                system.AddLine(lines(8));
+            );
+    
+    private AddUnits: () ==> ()
+            AddUnits() ==
+            (
+                system.AddUnit(units(1));
+                system.AddUnit(units(2));
+                system.AddUnit(units(3));
+                system.AddUnit(units(4));
+                system.AddUnit(units(5));
+                system.AddUnit(units(6));
+                system.AddUnit(units(7));
+                system.AddUnit(units(8));
+            );
+    
+    private RelocateUnits: () ==> ()
+            RelocateUnits() ==
+            (
+                units(1).Relocate(lines(1), 1);
+                units(2).Relocate(lines(2), 1);
+                units(3).Relocate(lines(3), 1);
+                units(4).Relocate(lines(4), 1);
+                units(5).Relocate(lines(5), 1);
+                units(6).Relocate(lines(6), 1);
+                units(7).Relocate(lines(7), 1);
+                units(8).Relocate(lines(8), 1);
+            );
+    
+    private TickAll: () ==> ()
+            TickAll() ==
+            (
+                system.Tick();
+                units(1).Tick();
+                units(2).Tick();
+                units(3).Tick();
+                units(4).Tick();
+                units(5).Tick();
+                units(6).Tick();
+                units(7).Tick();
+                units(8).Tick();
+            );
+    
+    private States: () ==> seq of MetroUnit`MetroUnitState
+            States() == return [ u.GetState() | u in seq units ];
+    
+    -- // PrioritiseUnits //
+    public testPrioritiseUnits1: () ==> ()
+           testPrioritiseUnits1() ==
+                def priorities = [ <Underwater>, <Underground>, <Overground>, <Elevated> ];
+                    prioritisedUnits = system.PrioritiseUnits(elems units, priorities)
+                in
+                (
+                    -- PrioritiseUnits is non-deterministic when units have equal priority.
+                    assertTrue(prioritisedUnits(1) in set { units(1), units(5) } \ { prioritisedUnits(2) });
+                    assertTrue(prioritisedUnits(2) in set { units(1), units(5) } \ { prioritisedUnits(1) });
+                    assertTrue(prioritisedUnits(3) in set { units(2), units(6) } \ { prioritisedUnits(4) });
+                    assertTrue(prioritisedUnits(4) in set { units(2), units(6) } \ { prioritisedUnits(3) });
+                    assertTrue(prioritisedUnits(5) in set { units(3), units(7) } \ { prioritisedUnits(6) });
+                    assertTrue(prioritisedUnits(6) in set { units(3), units(7) } \ { prioritisedUnits(5) });
+                    assertTrue(prioritisedUnits(7) in set { units(4), units(8) } \ { prioritisedUnits(8) });
+                    assertTrue(prioritisedUnits(8) in set { units(4), units(8) } \ { prioritisedUnits(7) });
+                );
+    
+    public testPrioritiseUnits2: () ==> ()
+           testPrioritiseUnits2() ==
+                def priorities = [ <Overground>, <Underground>, <Underwater>, <Elevated> ];
+                    prioritisedUnits = system.PrioritiseUnits(elems units, priorities)
+                in
+                (
+                    assertTrue(prioritisedUnits(1) in set { units(3), units(7) } \ { prioritisedUnits(2) });
+                    assertTrue(prioritisedUnits(2) in set { units(3), units(7) } \ { prioritisedUnits(1) });
+                    assertTrue(prioritisedUnits(3) in set { units(2), units(6) } \ { prioritisedUnits(4) });
+                    assertTrue(prioritisedUnits(4) in set { units(2), units(6) } \ { prioritisedUnits(3) });
+                    assertTrue(prioritisedUnits(5) in set { units(1), units(5) } \ { prioritisedUnits(6) });
+                    assertTrue(prioritisedUnits(6) in set { units(1), units(5) } \ { prioritisedUnits(5) });
+                    assertTrue(prioritisedUnits(7) in set { units(4), units(8) } \ { prioritisedUnits(8) });
+                    assertTrue(prioritisedUnits(8) in set { units(4), units(8) } \ { prioritisedUnits(7) });
+                );
+    
+    public testPrioritiseUnits3: () ==> ()
+           testPrioritiseUnits3() ==
+                def priorities = [ <Underground>, <Elevated>, <Overground>, <Underwater> ];
+                    prioritisedUnits = system.PrioritiseUnits(elems units, priorities)
+                in
+                (
+                    assertTrue(prioritisedUnits(1) in set { units(2), units(6) } \ { prioritisedUnits(2) });
+                    assertTrue(prioritisedUnits(2) in set { units(2), units(6) } \ { prioritisedUnits(1) });
+                    assertTrue(prioritisedUnits(3) in set { units(4), units(8) } \ { prioritisedUnits(4) });
+                    assertTrue(prioritisedUnits(4) in set { units(4), units(8) } \ { prioritisedUnits(3) });
+                    assertTrue(prioritisedUnits(5) in set { units(3), units(7) } \ { prioritisedUnits(6) });
+                    assertTrue(prioritisedUnits(6) in set { units(3), units(7) } \ { prioritisedUnits(5) });
+                    assertTrue(prioritisedUnits(7) in set { units(1), units(5) } \ { prioritisedUnits(8) });
+                    assertTrue(prioritisedUnits(8) in set { units(1), units(5) } \ { prioritisedUnits(7) });
+                );
+        
+    -- // Tick //
+    public testTick1: () ==> ()
+           testTick1() ==
+           (
+                TickAll();
+                assertTrue(States() = [ <Running>, <Running>, <Stopped>, <Stopped>, <Running>, <Stopped>, <Stopped>, <Stopped> ]);
+                -- Capacity is          ------------------- 2 --------------------  ------------------- 1 --------------------
+           );
+    
+    public testTick2: () ==> ()
+           testTick2() ==
+           (
+                TickAll();
+                TickAll();
+                assertTrue(States() = [ <Running>, <Running>, <Stopped>, <Stopped>, <Running>, <Stopped>, <Stopped>, <Stopped> ]);
+                -- Capacity is          ------------------- 2 --------------------  ------------------- 1 --------------------
+           );
+    
+    public testTick3: () ==> ()
+           testTick3() ==
+           (
+                TickAll();
+                TickAll();
+                TickAll();
+                assertTrue(States() = [ <Running>, <Stopped>, <Running>, <Running>, <Running>, <Stopped>, <Stopped>, <Stopped> ]);
+                -- Capacity is          -------- 1 ------------------- 2 ---------  ------------------- 1 --------------------
+           );
+    
+    public tearDown: () ==> ()
+           tearDown() == skip;
+    
+end UnitTests

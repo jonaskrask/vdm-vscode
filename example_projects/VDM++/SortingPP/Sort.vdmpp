@@ -1,0 +1,50 @@
+/**
+ * Implements a polymorphic quicksort for arbitrary types with a less function.
+ */
+class Sort
+functions
+	equals[@T]: @T * @T * (@T * @T -> bool) -> bool
+	equals(a, b, less) ==
+		not less(a, b) and not less(b, a);
+
+	public sort[@T]: seq of @T * (@T * @T -> bool) -> seq of @T
+	sort(l, less) ==
+		cases l:
+			[] -> [],
+
+			[x] -> [x],
+
+			[x, y] -> if less(y, x)
+					  then [y, x]
+					  else [x, y],	-- NB, stable for equality
+
+			-^[x]^- ->  sort[@T]([y | y in seq l & less(y, x)], less) ^
+						         [y | y in seq l & equals[@T](y, x, less) ] ^
+						sort[@T]([y | y in seq l & less(x, y)], less)
+		end
+
+	post bagOf[@T](l) = bagOf[@T](RESULT) and	-- Permutation
+		forall i in set {1, ..., len RESULT - 1} &
+			not less(RESULT(i+1), RESULT(i))	-- Sorted!
+
+	measure len l;	-- Strictly decreasing
+
+	bagOf[@T]: seq of @T -> map @T to nat
+	bagOf(s) ==
+		{ i |-> occurs[@T](i, s) | i in set elems s }
+	post dom RESULT = elems s and sizeOfBag[@T](RESULT) = len s;
+
+	sizeOfBag[@T]: map @T to nat -> nat
+	sizeOfBag(b) ==
+		if b = {|->}
+		then 0
+		else let e in set dom b in b(e) + sizeOfBag[@T]({e} <-: b)
+	measure card dom b;	-- Strictly decreasing
+
+	occurs[@T]: @T * seq of @T -> nat
+	occurs(e, s) ==
+		if s = [] then 0
+		else (if e = hd s then 1 else 0) + occurs[@T](e, tl s)
+	measure len s;	-- Strictly decreasing
+
+end Sort

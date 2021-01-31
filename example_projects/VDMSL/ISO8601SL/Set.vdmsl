@@ -1,0 +1,165 @@
+/*
+   A module that specifies and defines general purpose functions over sets.
+
+   All functions are explicit and executable. Where a non-executable condition adds value, it
+   is included as a comment.
+*/
+module Set
+imports from Numeric all,
+        from Seq all,
+        from Ord all
+exports functions sum: set of real +> real;
+                  prod: set of real +> real;
+                  min[@a]: set1 of @a +> @a;
+                  minWith[@a]: (@a * @a +> bool) +> set1 of @a +> @a;
+                  max[@a]: set1 of @a +> @a;
+                  maxWith[@a]: (@a * @a +> bool) +> set1 of @a +> @a;
+                  toSeq[@a]: set of @a +> seq of @a;
+                  xform[@a,@b]: (@a +> @b) * set of @a +> set of @b;
+                  filter[@a]: (@a +> bool) +> set of @a +> set of @a;
+                  fold[@a]: (@a * @a +> @a) * @a * set of @a +> @a;
+                  fold1[@a]: (@a * @a +> @a) * set1 of @a +> @a;
+                  pairwiseDisjoint[@a]: set of set of @a +> bool;
+                  isPartition[@a]: set of set of @a * set of @a +> bool;
+                  permutations[@a]: set1 of @a +> set1 of seq1 of @a;
+                  xProduct[@a,@b]: set of @a * set of @b +> set of (@a * @b);
+                  format[@a]: (@a +> seq of char) * seq of char * set of @a +> seq of char
+
+definitions
+
+functions
+
+  -- The sum of a set of numerics.
+  sum: set of real +> real
+  sum(s) == fold[real](Numeric`add,0,s);
+
+  -- The product of a set of numerics.
+  prod: set of real +> real
+  prod(s) == fold[real](Numeric`mult,1,s);
+
+  -- The minimum of a set.
+  min[@a]: set1 of @a +> @a
+  min(s) == fold1[@a](Ord`min[@a], s)
+  -- pre Type argument @a admits an order relation.
+  post RESULT in set s and forall e in set s & RESULT <= e;
+
+  -- The minimum of a set with respect to a relation.
+  minWith[@a]: (@a * @a +> bool) +> set1 of @a +> @a
+  minWith(o)(s) == fold1[@a](Ord`minWith[@a](o), s)
+  post RESULT in set s and forall e in set s & RESULT <= e;
+
+  -- The maximum of a set.
+  max[@a]: set1 of @a +> @a
+  max(s) == fold1[@a](Ord`max[@a], s)
+  -- pre Type argument @a admits an order relation.
+  post RESULT in set s and forall e in set s & RESULT >= e;
+
+  -- The maximum of a set with respect to a relation.
+  maxWith[@a]: (@a * @a +> bool) +> set1 of @a +> @a
+  maxWith(o)(s) == fold1[@a](Ord`maxWith[@a](o), s)
+  post RESULT in set s and forall e in set s & RESULT >= e;
+
+  -- The sequence whose elements are those of a specified set, with no duplicates.
+  -- No order is guaranteed in the resulting sequence.
+  toSeq[@a]: set of @a +> seq of @a
+  toSeq(s) == cases s:
+                {} ->        [],
+                {x} ->       [x],
+                t union u -> toSeq[@a](t) ^ toSeq[@a](u)
+              end
+  post len RESULT = card s and elems RESULT = s
+  measure size;
+  /*
+    A simpler definition would be
+      toSeq(s) == [ x | x in set s ]
+    This would however assume an order relation on the argument type @a.
+  */
+
+  -- Apply a function to all elements of a set. The result set may be smaller than the
+  -- argument set if the function argument is not injective.
+  xform[@a,@b]: (@a+>@b) * set of @a +> set of @b
+  xform(f,s) == { f(e) | e in set s }
+  post (forall e in set s & f(e) in set RESULT) and
+       (forall r in set RESULT & exists e in set s & f(e) = r);
+
+  -- Filter those elements of a set that satisfy a predicate.
+  filter[@a]: (@a +> bool) +> set of @a +> set of @a
+  filter(p)(s) == { x | x in set s & p(x) }
+  post (forall x in set RESULT & p(x)) and (forall x in set s \ RESULT & not p(x));
+
+  -- Fold (iterate, accumulate, reduce) a binary function over a set.
+  -- The function is assumed to be commutative and associative, and have an identity element.
+  fold[@a]: (@a * @a +> @a) * @a * set of @a +> @a
+  fold(f, e, s) == cases s:
+                     {}        -> e,
+                     {x}       -> x,
+                     t union u -> f(fold[@a](f,e,t), fold[@a](f,e,u))
+                   end
+  --pre (forall x:@a & f(x,e) = x and f(e,x) = x)
+  --and (forall x,y:@a & f(x, y) = f(y, x))
+  --and (forall x,y,z:@a & f(x,f(y,z)) = f(f(x,y),z))
+  measure size2;
+
+  -- Fold (iterate, accumulate, reduce) a binary function over a non-empty set.
+  -- The function is assumed to be commutative and associative.
+  fold1[@a]: (@a * @a +> @a) * set1 of @a +> @a
+  fold1(f, s) == cases s:
+                   {e}       -> e,
+                   t union u -> f(fold1[@a](f,t), fold1[@a](f,u))
+                 end
+  --pre (forall x,y:@a & f(x,y) = f(y,x))
+  --and (forall x,y,z:@a & f(x,f(y,z)) = f(f(x,y),z))
+  measure size1;
+
+  -- Are the members of a set of sets pairwise disjoint.
+  pairwiseDisjoint[@a]: set of set of @a +> bool
+  pairwiseDisjoint(ss) == forall x,y in set ss & x<>y => x inter y = {};
+
+  -- Is a set of sets a partition of a set?
+  isPartition[@a]: set of set of @a * set of @a +> bool
+  isPartition(ss,s) == pairwiseDisjoint[@a](ss) and dunion ss = s;
+
+  -- All (sequence) permutations of a set.
+  permutations[@a]: set1 of @a +> set1 of seq1 of @a
+  permutations(s) ==
+    cases s:
+      {e} -> {[e]},
+      -   -> dunion { { [e]^tail | tail in set permutations[@a](s\{e}) } | e in set s }
+    end
+  post -- for a set of size n, there are n! permutations
+       card RESULT = prod({1,...,card s}) and
+       forall sq in set RESULT & len sq = card s and elems sq = s
+  measure size0;
+
+  -- The cross product of two sets.
+  xProduct[@a,@b]: set of @a * set of @b +> set of (@a * @b)
+  xProduct(s,t) == { mk_(x,y) | x in set s, y in set t }
+  post card RESULT = card s * card t;
+
+  -- Create a string presentation of a set.
+  format[@a]: (@a +> seq of char) * seq of char * set of @a +> seq of char
+  format(f,sep,s) == cases s:
+                       {}        -> "",
+                       {x}       -> f(x),
+                       t union u -> format[@a](f,sep,t) ^ sep ^ format[@a](f,sep,u)
+                     end
+  measure size3;
+
+  -- Measure functions.
+
+  size[@a]: set of @a +> nat
+  size(s) == card s;
+
+  size0[@a]: set1 of @a +> nat
+  size0(s) == card s;
+
+  size1[@a]: (@a * @a +> @a) * set1 of @a +> nat
+  size1(-, s) == card s;
+
+  size2[@a]: (@a * @a +> @a) * @a * set of @a +> nat
+  size2(-, -, s) == card s;
+
+  size3[@a]: (@a +> seq of char) * seq of char * set of @a +> nat
+  size3(-, -, s) == card s;
+
+end Set

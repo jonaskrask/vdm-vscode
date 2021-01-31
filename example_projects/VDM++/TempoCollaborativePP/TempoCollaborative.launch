@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<launchConfiguration type="org.overture.ide.vdmpp.debug.launchConfigurationType">
+<listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_PATHS">
+<listEntry value="/TempoCollaborative"/>
+</listAttribute>
+<listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_TYPES">
+<listEntry value="4"/>
+</listAttribute>
+<booleanAttribute key="vdm_launch_config_console_entry" value="false"/>
+<booleanAttribute key="vdm_launch_config_create_coverage" value="true"/>
+<stringAttribute key="vdm_launch_config_custom_debugger_properties" value="diags.guards = false;diags.timestep = false;maxint = 255;minint = 0;numeric.type.bind.generation = false;parser.tabstop = 1;rt.cycle.default = 2;rt.duration.default = 2;rt.duration.transactions = false;rt.log.instvarchanges = false;rt.max.periodic.overlaps = 20;scheduler.fcfs.timeslice = 10;scheduler.jitter = 0;scheduler.virtual.timeslice = 10000;traces.max.repeats = 5"/>
+<stringAttribute key="vdm_launch_config_default" value="World"/>
+<booleanAttribute key="vdm_launch_config_dtc_checks" value="true"/>
+<booleanAttribute key="vdm_launch_config_enable_logging" value="false"/>
+<booleanAttribute key="vdm_launch_config_enable_realtime_time_inv_checks" value="false"/>
+<stringAttribute key="vdm_launch_config_expression" value="new World().Run(&quot;RotterdamNetwork.csv&quot;, &quot;TMSconfiguration.csv&quot;, 300)"/>
+<booleanAttribute key="vdm_launch_config_inv_checks" value="true"/>
+<booleanAttribute key="vdm_launch_config_measure_checks" value="true"/>
+<stringAttribute key="vdm_launch_config_memory_option" value=""/>
+<stringAttribute key="vdm_launch_config_method" value="Run(&quot;RotterdamNetwork.csv&quot;, &quot;TMSconfiguration.csv&quot;, 300)"/>
+<stringAttribute key="vdm_launch_config_module" value="World()"/>
+<booleanAttribute key="vdm_launch_config_post_checks" value="true"/>
+<booleanAttribute key="vdm_launch_config_pre_checks" value="true"/>
+<stringAttribute key="vdm_launch_config_project" value="TempoCollaborative"/>
+<stringAttribute key="vdm_launch_config_remote_control_class" value=""/>
+<booleanAttribute key="vdm_launch_config_remote_debug" value="false"/>
+<booleanAttribute key="vdm_launch_config_show_vm_settings" value="false"/>
+<booleanAttribute key="vdm_launch_config_static_method" value="false"/>
+</launchConfiguration>

@@ -1,0 +1,18 @@
+/**
+ * Execute all of the VDMUnit tests.
+ */
+class TestAll
+operations
+	public Run: () ==> ()
+	Run() ==
+		let ts : TestSuite = new TestSuite(),
+			result = new TestResult() 
+		in
+		(
+			ts.addTest(new TypeTests());
+			ts.addTest(new StableTests());
+			ts.run(result);
+			IO`println(result.toString());
+		);
+
+end TestAll

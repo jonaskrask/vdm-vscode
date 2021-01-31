@@ -1,0 +1,157 @@
+/*
+   A module that specifies and defines general purpose types, constants and functions over
+   characters and strings (sequences of characters).
+
+   All functions are explicit and executable. Where a non-executable condition adds value, it
+   is included as a comment.
+*/
+module Char
+imports from Seq all
+exports types struct Upper
+              struct Lower
+              struct Letter
+              struct Digit
+              struct Octal
+              struct Hex
+              struct AlphaNumUpper
+              struct AlphaNumLower
+              struct AlphaNum
+              struct Space
+              struct WhiteSpace
+              struct Phrase
+              struct PhraseUpper
+              struct PhraseLower
+              struct Text
+              struct TextUpper
+              struct TextLower
+        values SP, TB, CR, LF: char
+               WHITE_SPACE, UPPER, LOWER, LETTER, DIGIT, OCTAL, HEX, ALPHANUMUPPER, ALPHANUMLOWER, ALPHANUM, PUNCTUATION: set of char
+               UPPERS, LOWERS, LETTERS, DIGITS, OCTALS, HEXS, ALPHANUMUPPERS, ALPHANUMLOWERS, ALPHANUMS, PUNCTUATIONS: seq of char
+        functions toLower: Upper +> Lower
+                  toUpper: Lower +> Upper
+                  isDigit: char +> bool
+                  isDigits: seq of char +> bool
+                  isWhiteSpace: char +> bool
+                  isWhiteSpaces: seq of char +> bool
+                  trimWhite: seq of char +> seq of char
+                  filterWhite: seq of char +> seq of char
+
+definitions
+
+types
+
+  Upper = char
+  inv c == c in set UPPER;
+
+  Lower = char
+  inv c == c in set LOWER;
+
+  Letter = char
+  inv c == c in set LETTER;
+
+  Digit = char
+  inv c == c in set DIGIT;
+  
+  Octal = char
+  inv c == c in set OCTAL;
+
+  Hex = char
+  inv c == c in set HEX;
+
+  AlphaNumUpper = char
+  inv c == c in set ALPHANUMUPPER;
+
+  AlphaNumLower = char
+  inv c == c in set ALPHANUMLOWER;
+
+  AlphaNum = char
+  inv c == c in set ALPHANUM;
+
+  Space = char
+  inv c == c = SP;
+
+  WhiteSpace = char
+  inv ws == ws in set WHITE_SPACE;
+
+  Punctuation = char
+  inv c == c in set PUNCTUATION;
+
+  Phrase = seq1 of (AlphaNum|Space);
+
+  PhraseUpper = seq1 of (AlphaNumUpper|Space);
+
+  PhraseLower = seq1 of (AlphaNumLower|Space);
+
+  Text = seq1 of (AlphaNum|WhiteSpace|Punctuation);
+
+  TextUpper = seq1 of (AlphaNumUpper|WhiteSpace|Punctuation);
+
+  TextLower = seq1 of (AlphaNumLower|WhiteSpace|Punctuation);
+
+values
+
+  SP:char = ' ';
+  TB:char = '\t';
+  CR:char = '\r';
+  LF:char = '\n';
+  WHITE_SPACE:set of char = {SP,TB,CR,LF};
+  UPPER:set of char = {'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q',
+                       'R','S','T','U','V','W','X','Y','Z'};
+  UPPERS: seq of Upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  LOWER:set of char = {'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q',
+                       'r','s','t','u','v','w','x','y','z'};
+  LOWERS: seq of Lower = "abcdefghijklmnopqrstuvwxyz";
+  LETTER:set of char = UPPER union LOWER;
+  LETTERS:seq of char = UPPERS ^ LOWERS;
+  DIGIT:set of char = {'0','1','2','3','4','5','6','7','8','9'};
+  DIGITS:seq of Digit = "0123456789";
+  ALPHANUMUPPER:set of char = UPPER union DIGIT;
+  ALPHANUMUPPERS:seq of char = UPPERS ^ DIGITS;
+  ALPHANUMLOWER:set of char = LOWER union DIGIT;
+  ALPHANUMLOWERS:seq of char = LOWERS ^ DIGITS;
+  ALPHANUM:set of char = LETTER union DIGIT;
+  ALPHANUMS:seq of char = LETTERS ^ DIGITS;
+  OCTAL:set of char = {'0','1','2','3','4','5','6','7'};
+  OCTALS:seq of Octal = "01234567";
+  HEX:set of char = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
+  HEXS:seq of Hex = "0123456789ABCDEF";
+  PUNCTUATION:set of char = {',','.',';',':','-','/'};
+  PUNCTUATIONS: seq of Punctuation = ",.;:-/";
+
+functions
+
+  -- Convert upper case letter to lower case.
+  toLower: Upper +> Lower
+  toLower(c) == LOWERS(Seq`indexOf[Upper](c,UPPERS))
+  post toUpper(RESULT) = c;
+
+  -- Convert lower case letter to upper case.
+  toUpper: Lower +> Upper
+  toUpper(c) == UPPERS(Seq`indexOf[Lower](c,LOWERS));
+  --post toLower(RESULT) = c;
+
+  -- Is a character a decimal digit?
+  isDigit: char +> bool
+  isDigit(c) == c in set DIGIT;
+
+  -- Are all characters in a sequence decimal digits?
+  isDigits: seq of char +> bool
+  isDigits(sc) == forall c in set elems sc & isDigit(c);
+
+  -- Is a character white space?
+  isWhiteSpace: char +> bool
+  isWhiteSpace(c) == c in set WHITE_SPACE;
+
+  -- Are all characters in a sequence white space?
+  isWhiteSpaces: seq of char +> bool
+  isWhiteSpaces(sc) == forall c in set elems sc & isWhiteSpace(c);
+
+  -- Trim white space from the front and back of a string.
+  trimWhite: seq of char +> seq of char
+  trimWhite(s) == Seq`dropWhile[char](isWhiteSpace, reverse(Seq`dropWhile[char](isWhiteSpace, reverse(s))));
+
+  -- Filter white space from a string.
+  filterWhite: seq of char +> seq of char
+  filterWhite(s) == [ c | c in seq s & not isWhiteSpace(c) ];
+
+end Char

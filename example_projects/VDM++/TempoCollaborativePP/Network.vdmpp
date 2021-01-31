@@ -1,0 +1,149 @@
+	class Network
+
+types
+
+public EdgeId = seq of char;
+  
+public Request ::
+   originator : EdgeId
+   service : TMS`ServiceId
+   severity: real
+   cost : real
+   accepted : bool;
+  
+instance variables
+
+  connections : map EdgeId to Edge := {|->};
+  requests: map EdgeId to set of Request := {|->};
+  offers: map EdgeId to set of Request := {|->};
+  notproblematic : map World`TMSId to set of EdgeId := {|->};
+  
+operations
+
+  public Network: map EdgeId to Edge ==> Network
+  Network(conn) ==
+    connections := conn;
+   
+  public MakeOffer: EdgeId * real ==> () 
+  MakeOffer (eid, cost) ==
+  (  let reqs = {mu(r,accepted |-> false, cost |-> cost) | r in set requests(eid)}
+    in
+    offers(eid) := (if eid in set dom offers 
+                    then offers(eid)
+                    else {}) union reqs;
+                    IO`printf("The following offers are made: %s", [offers(eid)])
+  )
+  pre eid in set dom requests;
+  
+  public AddRequests: map EdgeId to set of Request ==> ()
+  AddRequests(req_m) ==
+    requests := requests ++ {id |-> req_m(id) union
+                                    if id in set dom requests
+                                    then requests(id)
+                                    else {} 
+                            | id in set dom req_m};
+                            
+  pure public GetNotProblematic: () ==> set of EdgeId
+  GetNotProblematic() ==
+    return dunion rng notproblematic;
+    
+  pure public GetRequests: EdgeId ==> set of Request
+  GetRequests(eid) ==
+    return if eid in set dom requests
+           then requests(eid)
+           else {};
+           
+ pure public GetOffers: EdgeId ==> map EdgeId to set of Request
+ GetOffers(requestor) ==
+    return { provider |->{offer |offer in set offers(provider)}
+           | provider in set dom offers & provider = requestor};
+               
+  public AcceptOffers: EdgeId * set of Request ==> ()
+  AcceptOffers(eid, accepted) ==
+     offers(eid) := (if eid in set dom offers
+                     then offers(eid) 
+                     else {}) union accepted;
+                
+  pure public GetAcceptedOffers: EdgeId ==> set of Request
+  GetAcceptedOffers(eid) ==
+    return if eid in set dom offers 
+           then {offer | offer in set offers(eid) & offer.accepted} 
+           else {};
+  
+  public ResetOffers: () ==> ()
+  ResetOffers() ==
+    (requests := {|->};
+     offers := {|->});
+
+  public CancelOldProblematicEdges: World`TMSId * set of Network`EdgeId ==> ()
+  CancelOldProblematicEdges(tmsid,edges) ==
+    notproblematic(tmsid) := edges union if tmsid in set dom notproblematic
+                                         then notproblematic(tmsid)
+                                         else {};
+     
+  public ResetNotproblematic: World`TMSId ==> ()
+  ResetNotproblematic(tmsid) ==
+    notproblematic(tmsid) := {};
+    
+  pure public OfInterestTo: EdgeId ==> set of EdgeId
+  OfInterestTo(edgeid) ==
+    let s = connections(edgeid).GetStartNode(),
+        e = connections(edgeid).GetEndNode()
+    in 
+      return {eid | eid in set dom connections
+                  & connections(eid).GetEndNode() = s or connections(eid).GetStartNode() = e}
+  pre edgeid in set dom connections;
+                  
+  public LeadsToInNSteps: EdgeId * nat1 ==> set of EdgeId
+  LeadsToInNSteps(edgeid,n) ==
+    let s = connections(edgeid).GetStartNode(),
+        leadsto = {eid | eid in set dom connections
+                       & connections(eid).GetEndNode() = s} 
+    in
+      if n = 1
+      then return leadsto
+      else let starts = {connections(eid).GetEndNode()
+                        | eid in set leadsto},
+               rest = dunion {LeadsToInNSteps(eid,n-1)
+                             | eid in set leadsto
+                             & connections(eid).GetEndNode() in set starts}
+           in 
+             return leadsto union rest
+  pre edgeid in set dom connections;
+  
+  pure public GetMaxSpeed: EdgeId ==> nat
+  GetMaxSpeed(edgeid) ==
+     return connections(edgeid).maxSpeed
+  pre edgeid in set dom connections;
+  
+  pure public GetOpenLanes: EdgeId ==> nat
+  GetOpenLanes(edgeid) ==
+     return connections(edgeid).laneCount
+  pre edgeid in set dom connections;
+  
+  
+  public GetEdgeIds: () ==> set of EdgeId
+  GetEdgeIds() == return dom connections;
+  
+  pure public IsInputEdge: EdgeId * EdgeId ==> bool
+  IsInputEdge (eid1, eid2) ==
+    return connections(eid1).GetEndNode() = connections(eid2).GetStartNode()  
+  pre {eid1,eid2} subset dom connections;    
+  -- Test if eid1 is an input edge to eid2
+  
+  pure public IsOutputEdge: EdgeId * EdgeId ==> bool
+  IsOutputEdge (eid1, eid2) ==
+    return connections(eid1).GetStartNode() = connections(eid2).GetEndNode() 
+  pre {eid1,eid2} subset dom connections;    
+  -- Test if eid1 is an output edge of eid2
+  
+--public AddDiversionRoutes: EdgeId * set of seq of EdgeId ==> ()
+--AddDiversionRoutes(eid,routes) ==
+--  div_routes(eid) := routes;
+  
+  pure public GetConnections: () ==> map EdgeId to Edge
+ GetConnections() ==
+   return connections;
+   
+           
+end Network
