@@ -34,7 +34,8 @@
   "activationEvents": [
     "onLanguage:vdmsl",
     "onLanguage:vdmpp",
-    "onLanguage:vdmrt"
+    "onLanguage:vdmrt",
+    "onCommand:vdm-vscode.ctRebuildOutline"
   ],
   "main": "./dist/extension",
   "contributes": {
@@ -144,13 +145,11 @@
       "combinatorialTesting": [
         {
           "id": "vdm-ctView",
-          "name": "Tests",
-          "when": "vdm-ct-show-view == true"
+          "name": "Tests"
         },
         {
           "id": "vdm-ctResultView",
-          "name": "Test Sequence Results",
-          "when": "vdm-ct-show-view == true"
+          "name": "Test Sequence Results"
         }
       ]
     },

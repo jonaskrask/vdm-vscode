@@ -1,5 +1,6 @@
+import { clearInterval } from "timers";
 import { ExtensionContext, Uri, window, commands, workspace } from "vscode";
-import { StaticFeature, ClientCapabilities, ServerCapabilities } from "vscode-languageclient";
+import { StaticFeature, ClientCapabilities, ServerCapabilities, Event } from "vscode-languageclient";
 import { ProofObligationPanel } from "./ProofObligationPanel";
 import { ExperimentalCapabilities, POGUpdatedNotification, GeneratePOParams, GeneratePORequest } from "./protocol.slsp";
 import { SpecificationLanguageClient } from "./SpecificationLanguageClient";
@@ -45,6 +46,27 @@ export class ProofObligationGenerationFeature implements StaticFeature {
                 // Find client
                 let wsFolder = workspace.getWorkspaceFolder(inputUri);
                 let client = globalThis.clients.get(wsFolder.uri.toString());
+
+                // If no client -> Launch client and re-execute command 
+                if (!client){
+                    commands.executeCommand("vscode.open",inputUri).then(e => {
+                        function awaitClient(times: number) {
+                            if (times == 0)
+                                return;
+
+                            setTimeout(e => {
+                                let client : SpecificationLanguageClient = globalThis.clients.get(wsFolder.uri.toString())
+                                if (client && client.initializeResult) {
+                                    commands.executeCommand("vdm-vscode.runPOG",inputUri)
+                                }
+                                else
+                                    awaitClient(times - 1);
+                            },100)
+                        }
+                        awaitClient(50); // 5 second maximum
+                    })
+                    return;
+                }
 
                 ProofObligationGenerationFeature.run(wsFolder.uri, client, this._context)
             });
